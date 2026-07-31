@@ -9,6 +9,8 @@ class CfgWeapons {
         scopeArsenal = 2;
         displayName = "AN/PRC-163 Battery";
         descriptionShort = "Rechargeable battery for the AN/PRC-163 radio";
+        picture = "\UKSF_PRC163\data\ui\prc163_battery_icon.paa";
+        model = "\UKSF_PRC163\data\battery.p3d";
 
         class ItemInfo: CBA_MiscItem_ItemInfo {
             mass = 8;
@@ -19,6 +21,8 @@ class CfgWeapons {
         displayName = "AN/PRC-163";
         useActionTitle = "AN/PRC-163";
         descriptionShort = "AN/PRC-163 Dual-Channel Multiband Radio";
+        picture = "\UKSF_PRC163\data\ui\prc163_icon.paa";
+        model = "\UKSF_PRC163\data\prc163.p3d";
         scope = 2;
         scopeCurator = 2;
         author = "UKSF Surplus";
