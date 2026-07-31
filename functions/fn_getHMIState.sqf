@@ -253,6 +253,7 @@ _page = toUpper _page;
 private _validPages = [
     "HOME",
     "MENU",
+    "RTSELECT",
     "PRESET",
     "VOLUME",
     "AUDIO",

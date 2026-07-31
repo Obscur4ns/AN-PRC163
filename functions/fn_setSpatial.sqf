@@ -11,8 +11,41 @@ private _sourceRadioId = toLower _radioId;
 if (
     _sourceRadioId isEqualTo "" ||
     {_sourceRadioId find _prefix != 0} ||
-    {!(_spatial isEqualType 0)}
+    {
+        !(
+            _spatial isEqualType 0 ||
+            {_spatial isEqualType ""}
+        )
+    }
 ) exitWith {
+    false
+};
+
+private _spatialValue = -99;
+
+if (_spatial isEqualType 0) then {
+    if (_spatial in [-1,0,1]) then {
+        _spatialValue = _spatial;
+    };
+} else {
+    switch (toUpper _spatial) do {
+        case "LEFT": {
+            _spatialValue = -1;
+        };
+
+        case "RIGHT": {
+            _spatialValue = 1;
+        };
+
+        case "CENTER";
+        case "CENTRE";
+        case "BOTH": {
+            _spatialValue = 0;
+        };
+    };
+};
+
+if !(_spatialValue in [-1,0,1]) exitWith {
     false
 };
 
@@ -23,6 +56,7 @@ private _pilotEnabled = missionNamespace getVariable [
 
 private _radioA = "";
 private _radioB = "";
+private _line = -1;
 
 if (_pilotEnabled) then {
     private _endpointMap = missionNamespace getVariable [
@@ -38,6 +72,7 @@ if (_pilotEnabled) then {
 
     if !(_entry isEqualTo []) then {
         _radioA = _sourceRadioId;
+        _line = 0;
     } else {
         private _statePrimary = [
             _sourceRadioId,
@@ -57,6 +92,7 @@ if (_pilotEnabled) then {
                     _radioA,
                     []
                 ];
+                _line = 1;
             };
         };
 
@@ -82,6 +118,7 @@ if (_pilotEnabled) then {
                     _radioA,
                     []
                 ];
+                _line = 1;
             };
         };
     };
@@ -95,19 +132,21 @@ if (_pilotEnabled) then {
         ]
     );
 
-    private _radioIds = (
+    private _gearRadios = (
         [player] call acre_sys_core_fnc_getGear
     ) apply {
         toLower _x
     };
 
     if (
-        !(_radioA in _radioIds) ||
+        !(_radioA in _gearRadios) ||
         {_radioA isEqualTo _radioB} ||
-        {_radioB find _prefix != 0}
+        {_radioB find _prefix != 0} ||
+        {!(_line in [0,1])}
     ) then {
         _radioA = "";
         _radioB = "";
+        _line = -1;
     };
 } else {
     private _radioIds = (
@@ -150,6 +189,13 @@ if (_pilotEnabled) then {
             ) then {
                 _radioA = _candidateA;
                 _radioB = _candidateB;
+                _line = if (
+                    (_sourceNumber mod 2) isEqualTo 1
+                ) then {
+                    0
+                } else {
+                    1
+                };
             };
         };
     };
@@ -157,87 +203,57 @@ if (_pilotEnabled) then {
 
 if (
     _radioA isEqualTo "" ||
-    {_radioB isEqualTo ""}
+    {_radioB isEqualTo ""} ||
+    {!(_line in [0,1])}
 ) exitWith {
     false
 };
 
-if !(_spatial in [-1,0,1]) then {
-    _spatial = 0;
-};
-
-private _guardName = format [
-    "UKSF_PRC163_spatialSync_%1",
-    _radioA
-];
-
-if (
-    missionNamespace getVariable [
-        _guardName,
-        false
-    ]
-) exitWith {
-    private _baseArguments = +_this;
-
-    _baseArguments set [
-        2,
-        _spatial
-    ];
-
-    _baseArguments call acre_sys_prc152_fnc_setSpatial;
-
-    true
-};
-
-private _selectedLine = [
+private _initialized = [
     _radioA,
     "getState",
-    "prc163SelectedLine"
+    "prc163Initialized"
 ] call acre_sys_data_fnc_dataEvent;
 
-if !(_selectedLine in [0,1]) then {
-    [
-        _radioA
-    ] call UKSF_PRC163_fnc_initializeState;
-
-    _selectedLine = [
-        _radioA,
-        "getState",
-        "prc163SelectedLine"
-    ] call acre_sys_data_fnc_dataEvent;
+if !(_initialized isEqualTo true) then {
+    if !(
+        [
+            _radioA
+        ] call UKSF_PRC163_fnc_initializeState
+    ) exitWith {
+        false
+    };
 };
-
-if !(_selectedLine in [0,1]) exitWith {
-    false
-};
-
-private _stateName = [
-    "prc163SpatialA",
-    "prc163SpatialB"
-] select _selectedLine;
 
 private _targetRadioId = [
     _radioA,
     _radioB
-] select _selectedLine;
+] select _line;
 
-missionNamespace setVariable [
-    _guardName,
-    true
-];
+private _stateName = [
+    "prc163SpatialA",
+    "prc163SpatialB"
+] select _line;
 
-private _actualResult = [
+[
     _targetRadioId,
-    "setSpatial",
-    _spatial
+    "",
+    _spatialValue,
+    _extra
+] call acre_sys_prc152_fnc_setSpatial;
+
+private _actualSpatial = [
+    _targetRadioId,
+    "getState",
+    "ACRE_INTERNAL_RADIOSPATIALIZATION"
 ] call acre_sys_data_fnc_dataEvent;
 
-missionNamespace setVariable [
-    _guardName,
-    false
-];
-
-if (_actualResult isEqualTo false) exitWith {
+if (
+    isNil "_actualSpatial" ||
+    {!(_actualSpatial isEqualType 0)} ||
+    {!(_actualSpatial in [-1,0,1])} ||
+    {!(_actualSpatial isEqualTo _spatialValue)}
+) exitWith {
     false
 };
 
@@ -247,7 +263,7 @@ if (_actualResult isEqualTo false) exitWith {
         "setState",
         [
             _stateName,
-            _spatial
+            _spatialValue
         ]
     ] call acre_sys_data_fnc_dataEvent;
 
@@ -256,7 +272,7 @@ if (_actualResult isEqualTo false) exitWith {
         "setState",
         [
             "prc163SelectedLine",
-            _selectedLine
+            _line
         ]
     ] call acre_sys_data_fnc_dataEvent;
 } forEach [

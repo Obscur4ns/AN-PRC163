@@ -1,8 +1,11 @@
+missionNamespace setVariable [
+    "UKSF_PRC163_SingleInstancePilot",
+    true
+];
 private _category = [
     "UKSF AN/PRC-163",
     "Battery"
 ];
-
 [
     "UKSF_PRC163_BatteriesEnabled",
     "CHECKBOX",
@@ -14,7 +17,6 @@ private _category = [
     true,
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryLifeHours",
     "SLIDER",
@@ -26,7 +28,6 @@ private _category = [
     [1,24,12,1],
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryDualWatchExtra",
     "SLIDER",
@@ -38,7 +39,6 @@ private _category = [
     [0,1,0.25,0,true],
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryReceiveExtra",
     "SLIDER",
@@ -50,7 +50,6 @@ private _category = [
     [0,2,0.5,0,true],
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryTransmitExtra",
     "SLIDER",
@@ -62,7 +61,6 @@ private _category = [
     [0,10,5,0,true],
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryLowThreshold",
     "SLIDER",
@@ -74,7 +72,6 @@ private _category = [
     [0.05,0.25,0.1,0,true],
     1
 ] call CBA_fnc_addSetting;
-
 [
     "UKSF_PRC163_BatteryCriticalThreshold",
     "SLIDER",

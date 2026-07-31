@@ -346,27 +346,47 @@ private _adjustTxPower = {
     ] call UKSF_PRC163_fnc_setTxPower
 };
 
-private _togglePower = {
-    private _currentPower = [
-        _radioA
-    ] call acre_api_fnc_getRadioOnOffState;
+private _selectRTLine = {
+    params [
+        ["_line",0,[0]]
+    ];
 
-    private _currentlyPowered = (
-        _currentPower isEqualTo 1 ||
-        {_currentPower isEqualTo true}
-    );
-
-    private _newPower = if (_currentlyPowered) then {
-        0
-    } else {
-        1
+    if !(_isPowered) exitWith {
+        call _rejectPoweredOff
     };
+
+    _line = (round _line) max 0 min 1;
 
     [
         _radioA,
+        _line
+    ] call UKSF_PRC163_fnc_selectLine
+};
+
+private _powerOff = {
+    if !(_isPowered) exitWith {
+        false
+    };
+
+    private _success = [
+        _radioA,
         "setOnOffState",
-        _newPower
-    ] call acre_sys_data_fnc_dataEvent
+        0
+    ] call acre_sys_data_fnc_dataEvent;
+
+    if (_success isEqualTo false) exitWith {
+        false
+    };
+
+    [
+        "HOME",
+        0,
+        "",
+        0
+    ] call _setHMIState;
+
+    closeDialog 0;
+    true
 };
 
 private _handled = false;
@@ -414,6 +434,17 @@ switch (_input) do {
             case "MENU": {
                 [
                     "HOME",
+                    0,
+                    "",
+                    0
+                ] call _setHMIState;
+
+                _handled = true;
+            };
+
+            case "RTSELECT": {
+                [
+                    "MENU",
                     0,
                     "",
                     0
@@ -534,18 +565,14 @@ switch (_input) do {
                             _handled = call _rejectPoweredOff;
                         };
 
-                        private _newLine = if (
-                            _selectedLine isEqualTo 0
-                        ) then {
-                            1
-                        } else {
+                        [
+                            "RTSELECT",
+                            0,
+                            "",
                             0
-                        };
+                        ] call _setHMIState;
 
-                        _handled = [
-                            _radioA,
-                            _newLine
-                        ] call UKSF_PRC163_fnc_selectLine;
+                        _handled = true;
                     };
 
                     case 1: {
@@ -622,16 +649,7 @@ switch (_input) do {
                     };
 
                     case 6: {
-                        _handled = [] call _togglePower;
-
-                        if (_handled) then {
-                            [
-                                "HOME",
-                                0,
-                                "",
-                                0
-                            ] call _setHMIState;
-                        };
+                        _handled = call _powerOff;
                     };
 
                     case 7: {
@@ -693,6 +711,7 @@ switch (_input) do {
                 };
             };
 
+            case "RTSELECT";
             case "VOLUME";
             case "AUDIO";
             case "STATUS";
@@ -720,6 +739,12 @@ switch (_input) do {
                 } else {
                     _handled = call _rejectPoweredOff;
                 };
+            };
+
+            case "RTSELECT": {
+                _handled = [
+                    0
+                ] call _selectRTLine;
             };
 
             case "MENU": {
@@ -787,6 +812,12 @@ switch (_input) do {
                 };
             };
 
+            case "RTSELECT": {
+                _handled = [
+                    1
+                ] call _selectRTLine;
+            };
+
             case "MENU": {
                 private _newCursor = (
                     _cursor + 1
@@ -851,6 +882,12 @@ switch (_input) do {
                 };
             };
 
+            case "RTSELECT": {
+                _handled = [
+                    0
+                ] call _selectRTLine;
+            };
+
             case "PRESET": {
                 if !(_isPowered) then {
                     _handled = call _rejectPoweredOff;
@@ -900,6 +937,12 @@ switch (_input) do {
                 } else {
                     _handled = call _rejectPoweredOff;
                 };
+            };
+
+            case "RTSELECT": {
+                _handled = [
+                    1
+                ] call _selectRTLine;
             };
 
             case "PRESET": {

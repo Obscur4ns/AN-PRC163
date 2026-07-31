@@ -169,6 +169,90 @@ private _insertRadioChildren = {
             _spatialB = "BOTH";
         };
 
+        private _radioBase = [
+            _radioA
+        ] call acre_api_fnc_getBaseRadio;
+
+        private _radioPicture = getText (
+            configFile >>
+            "CfgWeapons" >>
+            _radioBase >>
+            "picture"
+        );
+
+        private _batteryPicture = getText (
+            configFile >>
+            "CfgWeapons" >>
+            "UKSF_PRC163_Battery" >>
+            "picture"
+        );
+
+        if (_batteryPicture isEqualTo "") then {
+            _batteryPicture = _radioPicture;
+        };
+
+        private _openIcon = "\idi\acre\addons\ace_interact\data\icons\open.paa";
+        private _activeIcon = "\idi\acre\addons\ace_interact\data\icons\active.paa";
+        private _leftEarIcon = "\idi\acre\addons\ace_interact\data\icons\left_ear.paa";
+        private _bothEarsIcon = "\idi\acre\addons\ace_interact\data\icons\both_ears.paa";
+        private _rightEarIcon = "\idi\acre\addons\ace_interact\data\icons\right_ear.paa";
+
+        private _audioAText = switch (_spatialA) do {
+            case "LEFT": {
+                localize "STR_ACRE_ace_interact_leftEar"
+            };
+
+            case "RIGHT": {
+                localize "STR_ACRE_ace_interact_rightEar"
+            };
+
+            default {
+                localize "STR_ACRE_ace_interact_bothEars"
+            };
+        };
+
+        private _audioBText = switch (_spatialB) do {
+            case "LEFT": {
+                localize "STR_ACRE_ace_interact_leftEar"
+            };
+
+            case "RIGHT": {
+                localize "STR_ACRE_ace_interact_rightEar"
+            };
+
+            default {
+                localize "STR_ACRE_ace_interact_bothEars"
+            };
+        };
+
+        private _audioAIcon = switch (_spatialA) do {
+            case "LEFT": {
+                _leftEarIcon
+            };
+
+            case "RIGHT": {
+                _rightEarIcon
+            };
+
+            default {
+                _bothEarsIcon
+            };
+        };
+
+        private _audioBIcon = switch (_spatialB) do {
+            case "LEFT": {
+                _leftEarIcon
+            };
+
+            case "RIGHT": {
+                _rightEarIcon
+            };
+
+            default {
+                _bothEarsIcon
+            };
+        };
+
         private _pairCondition = {
             params [
                 "_target",
@@ -538,37 +622,13 @@ private _insertRadioChildren = {
                 if !(_radioB in _carriedRadios) exitWith {};
             };
 
-            private _targetRadio = [
-                _radioA,
-                _radioB
-            ] select _line;
-
-            private _stateName = [
-                "prc163SpatialA",
-                "prc163SpatialB"
-            ] select _line;
-
-            private _stateValue = switch (_spatial) do {
-                case "LEFT": {
-                    -1
-                };
-
-                case "RIGHT": {
-                    1
-                };
-
-                default {
-                    0
-                };
-            };
-
             {
                 [
                     _x,
                     "setState",
                     [
-                        _stateName,
-                        _stateValue
+                        "prc163SelectedLine",
+                        _line
                     ]
                 ] call acre_sys_data_fnc_dataEvent;
             } forEach [
@@ -576,12 +636,16 @@ private _insertRadioChildren = {
                 _radioB
             ];
 
+            private _targetRadio = [
+                _radioA,
+                _radioB
+            ] select _line;
+
             [
                 _targetRadio,
-                "",
-                _spatial,
-                ""
-            ] call acre_sys_prc152_fnc_setSpatial;
+                "setSpatial",
+                _spatial
+            ] call acre_sys_data_fnc_dataEvent;
         };
 
         private _dualWatchStatement = {
@@ -1060,8 +1124,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_Open_%1",
                 _slot
             ],
-            "Open Radio",
-            "",
+            localize "STR_ACRE_sys_gui_Open",
+            _openIcon,
             _openStatement,
             _pairCondition,
             {},
@@ -1076,8 +1140,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_SelectRT1_%1",
                 _slot
             ],
-            "Select R/T 1 for PTT",
-            "",
+            localize "STR_ACRE_ace_interact_setAsActive",
+            _activeIcon,
             _selectStatement,
             _pairCondition,
             {},
@@ -1093,8 +1157,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_SelectRT2_%1",
                 _slot
             ],
-            "Select R/T 2 for PTT",
-            "",
+            localize "STR_ACRE_ace_interact_setAsActive",
+            _activeIcon,
             _selectStatement,
             _pairCondition,
             {},
@@ -1110,8 +1174,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT1Left_%1",
                 _slot
             ],
-            "Left Ear",
-            "",
+            localize "STR_ACRE_ace_interact_leftEar",
+            _leftEarIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1128,8 +1192,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT1Both_%1",
                 _slot
             ],
-            "Both Ears",
-            "",
+            localize "STR_ACRE_ace_interact_bothEars",
+            _bothEarsIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1146,8 +1210,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT1Right_%1",
                 _slot
             ],
-            "Right Ear",
-            "",
+            localize "STR_ACRE_ace_interact_rightEar",
+            _rightEarIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1164,8 +1228,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT2Left_%1",
                 _slot
             ],
-            "Left Ear",
-            "",
+            localize "STR_ACRE_ace_interact_leftEar",
+            _leftEarIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1182,8 +1246,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT2Both_%1",
                 _slot
             ],
-            "Both Ears",
-            "",
+            localize "STR_ACRE_ace_interact_bothEars",
+            _bothEarsIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1200,8 +1264,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_RT2Right_%1",
                 _slot
             ],
-            "Right Ear",
-            "",
+            localize "STR_ACRE_ace_interact_rightEar",
+            _rightEarIcon,
             _earStatement,
             _pairCondition,
             {},
@@ -1213,20 +1277,55 @@ private _insertRadioChildren = {
             ]
         ] call ace_interact_menu_fnc_createAction;
 
+        private _audioAAction = [
+            format [
+                "UKSF_PRC163_RT1Audio_%1",
+                _slot
+            ],
+            _audioAText,
+            _audioAIcon,
+            {},
+            _pairCondition,
+            {},
+            [
+                _radioA,
+                _radioB
+            ]
+        ] call ace_interact_menu_fnc_createAction;
+
+        private _audioBAction = [
+            format [
+                "UKSF_PRC163_RT2Audio_%1",
+                _slot
+            ],
+            _audioBText,
+            _audioBIcon,
+            {},
+            _pairCondition,
+            {},
+            [
+                _radioA,
+                _radioB
+            ]
+        ] call ace_interact_menu_fnc_createAction;
+
         private _rtAAction = [
             format [
                 "UKSF_PRC163_RT1_%1",
                 _slot
             ],
             format [
-                "R/T 1 | P%1 | %2",
+                "R/T 1 | Chn %1",
                 _state getOrDefault [
                     "channelADisplay",
                     1
-                ],
-                _spatialA
+                ]
             ],
-            "",
+            if (_selectedLine isEqualTo 0) then {
+                _activeIcon
+            } else {
+                _radioPicture
+            },
             {},
             _pairCondition,
             {},
@@ -1242,14 +1341,17 @@ private _insertRadioChildren = {
                 _slot
             ],
             format [
-                "R/T 2 | P%1 | %2",
+                "R/T 2 | Chn %1",
                 _state getOrDefault [
                     "channelBDisplay",
                     1
-                ],
-                _spatialB
+                ]
             ],
-            "",
+            if (_selectedLine isEqualTo 1) then {
+                _activeIcon
+            } else {
+                _radioPicture
+            },
             {},
             _pairCondition,
             {},
@@ -1272,7 +1374,11 @@ private _insertRadioChildren = {
                     "OFF"
                 }
             ],
-            "",
+            if (_dualWatch isEqualTo 1) then {
+                _activeIcon
+            } else {
+                ""
+            },
             _dualWatchStatement,
             _poweredPairCondition,
             {},
@@ -1288,7 +1394,7 @@ private _insertRadioChildren = {
                 _slot
             ],
             "Status",
-            "",
+            _radioPicture,
             _statusStatement,
             _pairCondition,
             {},
@@ -1305,7 +1411,7 @@ private _insertRadioChildren = {
                 _slot
             ],
             "Check Battery",
-            "",
+            _batteryPicture,
             _checkBatteryStatement,
             _batteryCondition,
             {},
@@ -1321,7 +1427,7 @@ private _insertRadioChildren = {
                 _slot
             ],
             "Replace Battery",
-            "",
+            _batteryPicture,
             _replaceBatteryStatement,
             _replaceBatteryCondition,
             {},
@@ -1336,11 +1442,8 @@ private _insertRadioChildren = {
                 "UKSF_PRC163_Battery_%1",
                 _slot
             ],
-            format [
-                "Battery | %1",
-                _batteryText
-            ],
-            "",
+            "Battery",
+            _batteryPicture,
             {},
             _batteryCondition,
             {},
@@ -1356,12 +1459,10 @@ private _insertRadioChildren = {
                 _slot
             ],
             format [
-                "AN/PRC-163 %1 | %2 | %3",
-                _slot,
-                _selectedLineName,
-                _powerText
+                "AN/PRC-163 %1",
+                _slot
             ],
-            "",
+            _radioPicture,
             {},
             _pairCondition,
             {},
@@ -1371,6 +1472,58 @@ private _insertRadioChildren = {
             ]
         ] call ace_interact_menu_fnc_createAction;
 
+        private _audioAChildren = [];
+
+        if (_spatialA isNotEqualTo "RIGHT") then {
+            _audioAChildren pushBack [
+                _rightEarAAction,
+                [],
+                _target
+            ];
+        };
+
+        if (_spatialA isNotEqualTo "BOTH") then {
+            _audioAChildren pushBack [
+                _bothEarsAAction,
+                [],
+                _target
+            ];
+        };
+
+        if (_spatialA isNotEqualTo "LEFT") then {
+            _audioAChildren pushBack [
+                _leftEarAAction,
+                [],
+                _target
+            ];
+        };
+
+        private _audioBChildren = [];
+
+        if (_spatialB isNotEqualTo "RIGHT") then {
+            _audioBChildren pushBack [
+                _rightEarBAction,
+                [],
+                _target
+            ];
+        };
+
+        if (_spatialB isNotEqualTo "BOTH") then {
+            _audioBChildren pushBack [
+                _bothEarsBAction,
+                [],
+                _target
+            ];
+        };
+
+        if (_spatialB isNotEqualTo "LEFT") then {
+            _audioBChildren pushBack [
+                _leftEarBAction,
+                [],
+                _target
+            ];
+        };
+
         private _rtAChildren = [
             [
                 _selectAAction,
@@ -1378,18 +1531,8 @@ private _insertRadioChildren = {
                 _target
             ],
             [
-                _leftEarAAction,
-                [],
-                _target
-            ],
-            [
-                _bothEarsAAction,
-                [],
-                _target
-            ],
-            [
-                _rightEarAAction,
-                [],
+                _audioAAction,
+                _audioAChildren,
                 _target
             ]
         ];
@@ -1401,18 +1544,8 @@ private _insertRadioChildren = {
                 _target
             ],
             [
-                _leftEarBAction,
-                [],
-                _target
-            ],
-            [
-                _bothEarsBAction,
-                [],
-                _target
-            ],
-            [
-                _rightEarBAction,
-                [],
+                _audioBAction,
+                _audioBChildren,
                 _target
             ]
         ];
@@ -1550,8 +1683,8 @@ private _insertACREChildren = {
 
 private _action = [
     "ACRE_Interact",
-    "ACRE Radios",
-    "",
+    localize "STR_ACRE_ace_interact_radios",
+    "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa",
     {},
     {
         true

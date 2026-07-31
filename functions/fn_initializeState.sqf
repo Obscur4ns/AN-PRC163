@@ -653,40 +653,12 @@ if (_pilotEnabled) then {
         ]
     ] call acre_sys_data_fnc_dataEvent;
 
-    private _actualSpatialA = switch (_spatialA) do {
-        case -1: {
-            "LEFT"
-        };
-
-        case 1: {
-            "RIGHT"
-        };
-
-        default {
-            "CENTER"
-        };
-    };
-
-    private _actualSpatialB = switch (_spatialB) do {
-        case -1: {
-            "LEFT"
-        };
-
-        case 1: {
-            "RIGHT"
-        };
-
-        default {
-            "CENTER"
-        };
-    };
-
     [
         _radioA,
         "setState",
         [
             "ACRE_INTERNAL_RADIOSPATIALIZATION",
-            _actualSpatialA
+            _spatialA
         ]
     ] call acre_sys_data_fnc_dataEvent;
 
@@ -695,7 +667,7 @@ if (_pilotEnabled) then {
         "setState",
         [
             "ACRE_INTERNAL_RADIOSPATIALIZATION",
-            _actualSpatialB
+            _spatialB
         ]
     ] call acre_sys_data_fnc_dataEvent;
 };
