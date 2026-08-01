@@ -766,7 +766,10 @@ private _insertRadioChildren = {
             if ((count _state) isEqualTo 0) exitWith {};
 
             private _message = format [
-                "AN/PRC-163 %1 | %2 | R/T 1 P%3 %4 | R/T 2 P%5 %6 | DW %7 | %8",
+                "<t align='center'>AN/PRC-163 %1 - %2"
+                + "<br/><t size='0.9'>R/T 1: P%3 %4</t>"
+                + "<br/><t size='0.9'>R/T 2: P%5 %6</t>"
+                + "<br/><t size='0.85'>DW: %7 | %8</t></t>",
                 _slot,
                 _state getOrDefault [
                     "powerText",
@@ -808,15 +811,10 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                2.5,
-                [
-                    0.78,
-                    0.92,
-                    0.72,
-                    1
-                ],
-                true
-            ] call CBA_fnc_notify;
+                3,
+                player,
+                10
+            ] call UKSF_PRC163_fnc_notifyStatus;
         };
 
         private _checkBatteryStatement = {
@@ -897,12 +895,13 @@ private _insertRadioChildren = {
                 _installed isEqualTo 0
             ) then {
                 format [
-                    "AN/PRC-163 %1 | NO BATTERY",
+                    "<t align='center'>AN/PRC-163 %1<br/>NO BATTERY</t>",
                     _slot
                 ]
             } else {
                 format [
-                    "AN/PRC-163 %1 | BATTERY %2%3 | HEALTH %4%5",
+                    "<t align='center'>AN/PRC-163 %1"
+                    + "<br/><t size='0.85'>BATTERY: %2%3 | HEALTH: %4%5</t></t>",
                     _slot,
                     _charge,
                     "%",
@@ -913,15 +912,10 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                2.5,
-                [
-                    0.78,
-                    0.92,
-                    0.72,
-                    1
-                ],
-                true
-            ] call CBA_fnc_notify;
+                1.5,
+                player,
+                10
+            ] call UKSF_PRC163_fnc_notifyStatus;
         };
 
         private _replaceBatteryStatement = {

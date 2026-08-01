@@ -145,6 +145,20 @@ private _pairRadios = [
 
 private _targetRadioId = _pairRadios select _line;
 
+private _previousSelectedLine = [
+    _radioA,
+    "getState",
+    "prc163SelectedLine"
+] call acre_sys_data_fnc_dataEvent;
+
+if !(_previousSelectedLine in [0,1]) then {
+    _previousSelectedLine = -1;
+};
+
+private _lineChanged = !(
+    _previousSelectedLine isEqualTo _line
+);
+
 private _channelA = [
     _radioA,
     "getState",
@@ -279,8 +293,53 @@ uiNamespace setVariable [
     _targetRadioId
 ];
 
-[
-    _targetRadioId
-] call UKSF_PRC163_fnc_notifyStatus;
+if (_lineChanged) then {
+    private _radioType = [
+        _targetRadioId
+    ] call acre_sys_radio_fnc_getRadioBaseClassname;
+
+    private _typeName = getText (
+        configFile >>
+        "CfgAcreComponents" >>
+        _radioType >>
+        "name"
+    );
+
+    if (_typeName isEqualTo "") then {
+        _typeName = getText (
+            configFile >>
+            "CfgWeapons" >>
+            "ACRE_PRC163" >>
+            "displayName"
+        );
+    };
+
+    if (_typeName isEqualTo "") then {
+        _typeName = "AN/PRC-163";
+    };
+
+    private _listInfo = [
+        _targetRadioId,
+        "getListInfo"
+    ] call acre_sys_data_fnc_dataEvent;
+
+    private _cycleColor = missionNamespace getVariable [
+        "acre_sys_list_CycleRadiosColor",
+        [1,0.8,0,1]
+    ];
+
+    [
+        "acre_cycleRadio",
+        format [
+            "%1 R/T %2",
+            _typeName,
+            _line + 1
+        ],
+        _listInfo,
+        "",
+        1,
+        _cycleColor
+    ] call acre_sys_list_fnc_displayHint;
+};
 
 true

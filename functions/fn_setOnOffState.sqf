@@ -5,19 +5,6 @@ params [
     "_radioData"
 ];
 
-private _versionLogged = missionNamespace getVariable [
-    "UKSF_PRC163_HarrisStartupV2Logged",
-    false
-];
-
-if (!_versionLogged) then {
-    diag_log "[UKSF_PRC163] HARRIS STARTUP V2 ACTIVE";
-    missionNamespace setVariable [
-        "UKSF_PRC163_HarrisStartupV2Logged",
-        true
-    ];
-};
-
 private _prefix = "acre_prc163_id_";
 private _sourceRadioId = toLower _radioId;
 
@@ -276,18 +263,13 @@ if (
 
     [
         format [
-            "%1 | BATTERY UNAVAILABLE",
+            "<t align='center'>%1<br/>BATTERY UNAVAILABLE</t>",
             _radioName
         ],
-        1.1,
-        [
-            1,
-            0.35,
-            0.2,
-            1
-        ],
-        true
-    ] call CBA_fnc_notify;
+        1.5,
+        player,
+        10
+    ] call UKSF_PRC163_fnc_notifyStatus;
 
     false
 };
@@ -561,11 +543,6 @@ if (!_loadingApplied) exitWith {
 
     private _logoPath = "\UKSF_PRC163\data\ui\l3harris_logo.paa";
     private _logoExists = fileExists _logoPath;
-    diag_log format [
-        "[UKSF_PRC163] HARRIS STARTUP V2 LOGO EXISTS: %1 | %2",
-        _logoExists,
-        _logoPath
-    ];
     private _logo = controlNull;
     private _logoFallback = controlNull;
 

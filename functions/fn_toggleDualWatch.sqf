@@ -191,8 +191,25 @@ uiNamespace setVariable [
     _sourceRadioId
 ];
 
-[
-    _sourceRadioId
-] call UKSF_PRC163_fnc_notifyStatus;
+private _physicalInterfaceOpen = !isNull (
+    findDisplay 16300
+);
+
+if (!_physicalInterfaceOpen) then {
+    private _stateText = [
+        "OFF",
+        "ON"
+    ] select _newEnabled;
+
+    [
+        format [
+            "<t align='center'>Dual Watch: %1</t>",
+            _stateText
+        ],
+        1.5,
+        player,
+        5
+    ] call UKSF_PRC163_fnc_notifyStatus;
+};
 
 true

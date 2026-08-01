@@ -78,60 +78,6 @@
 
 [
     "AN/PRC-163",
-    "UKSF_PRC163_PTTLineA",
-    [
-        "PTT R/T 1",
-        "Optional direct press-to-talk for AN/PRC-163 R/T 1."
-    ],
-    {
-        [
-            0
-        ] call UKSF_PRC163_fnc_pttLineDown
-    },
-    {
-        [] call UKSF_PRC163_fnc_pttLineUp
-    },
-    [
-        DIK_NONE,
-        [
-            false,
-            false,
-            false
-        ]
-    ],
-    false,
-    0
-] call CBA_fnc_addKeybind;
-
-[
-    "AN/PRC-163",
-    "UKSF_PRC163_PTTLineB",
-    [
-        "PTT R/T 2",
-        "Optional direct press-to-talk for AN/PRC-163 R/T 2."
-    ],
-    {
-        [
-            1
-        ] call UKSF_PRC163_fnc_pttLineDown
-    },
-    {
-        [] call UKSF_PRC163_fnc_pttLineUp
-    },
-    [
-        DIK_NONE,
-        [
-            false,
-            false,
-            false
-        ]
-    ],
-    false,
-    0
-] call CBA_fnc_addKeybind;
-
-[
-    "AN/PRC-163",
     "UKSF_PRC163_ToggleDualWatch",
     [
         "Toggle Dual Watch",

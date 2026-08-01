@@ -167,12 +167,26 @@ if !(_selectedLine in [0,1]) then {
     _selectedLine = 0;
 };
 
-private _targetRadioId = _pairRadios select _selectedLine;
+private _pttLine = [
+    _sourceRadioId,
+    "getState",
+    "prc163EndpointLine"
+] call acre_sys_data_fnc_dataEvent;
+
+if !(_pttLine in [0,1]) then {
+    _pttLine = _pairRadios find _sourceRadioId;
+};
+
+if !(_pttLine in [0,1]) then {
+    _pttLine = _selectedLine;
+};
+
+private _targetRadioId = _pairRadios select _pttLine;
 
 private _channelState = [
     "prc163ChannelA",
     "prc163ChannelB"
-] select _selectedLine;
+] select _pttLine;
 
 private _selectedChannel = [
     _radioA,
@@ -200,6 +214,40 @@ if (
     _selectedChannel
 ] call acre_sys_data_fnc_dataEvent;
 
+private _previousCurrentRadio = [] call acre_api_fnc_getCurrentRadio;
+
+if !(_previousCurrentRadio isEqualType "") then {
+    _previousCurrentRadio = "";
+};
+
+_previousCurrentRadio = toLower _previousCurrentRadio;
+
+private _previousActiveRadio = missionNamespace getVariable [
+    "UKSF_PRC163_activeRadio",
+    _previousCurrentRadio
+];
+
+if !(_previousActiveRadio isEqualType "") then {
+    _previousActiveRadio = _previousCurrentRadio;
+};
+
+_previousActiveRadio = toLower _previousActiveRadio;
+
+private _restoreCurrentRadio = {
+    if !(_previousCurrentRadio isEqualTo "") then {
+        [
+            _previousCurrentRadio
+        ] call acre_api_fnc_setCurrentRadio;
+    };
+
+    if !(_previousActiveRadio isEqualTo "") then {
+        missionNamespace setVariable [
+            "UKSF_PRC163_activeRadio",
+            _previousActiveRadio
+        ];
+    };
+};
+
 private _setCurrentSuccess = [
     _targetRadioId
 ] call acre_api_fnc_setCurrentRadio;
@@ -218,15 +266,6 @@ missionNamespace setVariable [
         _x,
         "setState",
         [
-            "prc163SelectedLine",
-            _selectedLine
-        ]
-    ] call acre_sys_data_fnc_dataEvent;
-
-    [
-        _x,
-        "setState",
-        [
             "prc163PTTDown",
             1
         ]
@@ -237,7 +276,7 @@ missionNamespace setVariable [
         "setState",
         [
             "prc163TransmittingA",
-            if (_selectedLine isEqualTo 0) then {
+            if (_pttLine isEqualTo 0) then {
                 1
             } else {
                 0
@@ -250,7 +289,7 @@ missionNamespace setVariable [
         "setState",
         [
             "prc163TransmittingB",
-            if (_selectedLine isEqualTo 1) then {
+            if (_pttLine isEqualTo 1) then {
                 1
             } else {
                 0
@@ -264,6 +303,11 @@ missionNamespace setVariable [
     _targetRadioId
 ];
 
+missionNamespace setVariable [
+    "UKSF_PRC163_pttLine",
+    _pttLine
+];
+
 private _result = [
     _targetRadioId
 ] call acre_sys_prc152_fnc_handlePTTDown;
@@ -272,6 +316,11 @@ if (!_result) exitWith {
     missionNamespace setVariable [
         "UKSF_PRC163_pttRadio",
         nil
+    ];
+
+    missionNamespace setVariable [
+        "UKSF_PRC163_pttLine",
+        -1
     ];
 
     {
@@ -303,7 +352,11 @@ if (!_result) exitWith {
         ] call acre_sys_data_fnc_dataEvent;
     } forEach _pairRadios;
 
+    call _restoreCurrentRadio;
+
     false
 };
+
+call _restoreCurrentRadio;
 
 true

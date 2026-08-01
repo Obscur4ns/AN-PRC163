@@ -880,12 +880,26 @@ if (!hasInterface) exitWith {};
                     };
 
                     if (_warnedIndex < 0) then {
+                        private _slot = [
+                            _radioA,
+                            player
+                        ] call UKSF_PRC163_fnc_getBatterySlot;
+
+                        private _slotText = if (_slot > 0) then {
+                            str _slot
+                        } else {
+                            "?"
+                        };
+
                         [
-                            "AN/PRC-163 | BATTERY DEPLETED | RADIO OFF",
+                            format [
+                                "<t align='center'>AN/PRC-163 %1<br/><t size='0.85'>BATTERY DEPLETED - RADIO OFF</t></t>",
+                                _slotText
+                            ],
                             1.5,
-                            [1,0.35,0.2,1],
-                            true
-                        ] call CBA_fnc_notify;
+                            player,
+                            10
+                        ] call UKSF_PRC163_fnc_notifyStatus;
                     };
 
                     {
@@ -951,12 +965,21 @@ if (!hasInterface) exitWith {};
         !isNil "acre_api_fnc_getMultiPushToTalkAssignment" &&
         {!isNil "acre_api_fnc_setMultiPushToTalkAssignment"}
     ) then {
-        private _gearLower = _gearRadios apply {
-            toLower _x
-        };
+        private _prefix = "acre_prc163_id_";
+        private _availableRadios = [];
 
-        private _sortedGear = +_gearLower;
-        _sortedGear sort true;
+        {
+            private _radioId = toLower _x;
+
+            if !(_radioId isEqualTo "") then {
+                _availableRadios pushBackUnique _radioId;
+            };
+        } forEach (
+            _gearRadios +
+            (
+                [] call acre_api_fnc_getCurrentRadioList
+            )
+        );
 
         private _assignments = (
             [] call acre_api_fnc_getMultiPushToTalkAssignment
@@ -969,75 +992,217 @@ if (!hasInterface) exitWith {};
             (count _assignments) min 3
         ];
 
-        private _signature = str [
-            _sortedGear,
-            _actualPTT
+        private _currentRadio = [] call acre_api_fnc_getCurrentRadio;
+
+        if !(_currentRadio isEqualType "") then {
+            _currentRadio = "";
+        };
+
+        _currentRadio = toLower _currentRadio;
+
+        private _activeRadio = missionNamespace getVariable [
+            "UKSF_PRC163_activeRadio",
+            _currentRadio
         ];
 
-        private _lastSignature = missionNamespace getVariable [
-            "UKSF_PRC163_multiPTTSignature",
-            ""
+        if !(_activeRadio isEqualType "") then {
+            _activeRadio = _currentRadio;
+        };
+
+        _activeRadio = toLower _activeRadio;
+
+        if !(_activeRadio in _availableRadios) then {
+            _activeRadio = _currentRadio;
+        };
+
+        private _endpointMap = missionNamespace getVariable [
+            "UKSF_PRC163_endpointMap",
+            createHashMap
         ];
 
-        if (_signature isNotEqualTo _lastSignature) then {
-            private _collapsed = [];
-            private _hasCompletePair = false;
-
-            {
-                private _radioId = _x;
-
-                if (_radioId find "acre_prc163_id_" == 0) then {
-                    private _parts = _radioId splitString "_";
-
-                    private _number = parseNumber (
-                        _parts select ((count _parts) - 1)
-                    );
-
-                    if (_number > 0) then {
-                        private _oddNumber = if (
-                            (_number mod 2) isEqualTo 0
-                        ) then {
-                            _number - 1
-                        } else {
-                            _number
-                        };
-
-                        private _radioA = format [
-                            "acre_prc163_id_%1",
-                            _oddNumber
-                        ];
-
-                        private _radioB = format [
-                            "acre_prc163_id_%1",
-                            _oddNumber + 1
-                        ];
-
-                        if (
-                            _radioA in _gearLower &&
-                            {_radioB in _gearLower}
-                        ) then {
-                            _hasCompletePair = true;
-                            _collapsed pushBackUnique _radioA;
-                        } else {
-                            _collapsed pushBackUnique _radioId;
-                        };
-                    } else {
-                        _collapsed pushBackUnique _radioId;
-                    };
-                } else {
-                    _collapsed pushBackUnique _radioId;
-                };
-            } forEach _assignments;
-
-            private _desiredPTT = _collapsed select [
-                0,
-                (count _collapsed) min 3
+        private _resolvePair = {
+            params [
+                ["_sourceRadio","",[""]]
             ];
 
+            private _radioA = "";
+            private _radioB = "";
+
+            _sourceRadio = toLower _sourceRadio;
+
             if (
-                _hasCompletePair &&
-                {_actualPTT isNotEqualTo _desiredPTT}
+                !(_sourceRadio isEqualTo "") &&
+                {_sourceRadio find _prefix isEqualTo 0}
             ) then {
+                private _statePrimary = [
+                    _sourceRadio,
+                    "getState",
+                    "prc163PrimaryRadio"
+                ] call acre_sys_data_fnc_dataEvent;
+
+                if (
+                    !isNil "_statePrimary" &&
+                    {_statePrimary isEqualType ""}
+                ) then {
+                    _radioA = toLower _statePrimary;
+                };
+
+                private _stateCompanion = [
+                    _sourceRadio,
+                    "getState",
+                    "prc163CompanionRadio"
+                ] call acre_sys_data_fnc_dataEvent;
+
+                if (
+                    !isNil "_stateCompanion" &&
+                    {_stateCompanion isEqualType ""}
+                ) then {
+                    _radioB = toLower _stateCompanion;
+                };
+            };
+
+            if (
+                _radioA isEqualTo "" ||
+                {_radioB isEqualTo ""}
+            ) then {
+                private _entry = _endpointMap getOrDefault [
+                    _sourceRadio,
+                    []
+                ];
+
+                if !(_entry isEqualTo []) then {
+                    _radioA = _sourceRadio;
+                    _radioB = toLower (
+                        _entry param [
+                            0,
+                            "",
+                            [""]
+                        ]
+                    );
+                } else {
+                    private _mapKeys = keys _endpointMap;
+                    private _primaryIndex = _mapKeys findIf {
+                        private _candidateEntry = _endpointMap getOrDefault [
+                            _x,
+                            []
+                        ];
+
+                        toLower (
+                            _candidateEntry param [
+                                0,
+                                "",
+                                [""]
+                            ]
+                        ) isEqualTo _sourceRadio
+                    };
+
+                    if (_primaryIndex >= 0) then {
+                        _radioA = toLower (
+                            _mapKeys select _primaryIndex
+                        );
+
+                        private _primaryEntry = _endpointMap getOrDefault [
+                            _radioA,
+                            []
+                        ];
+
+                        _radioB = toLower (
+                            _primaryEntry param [
+                                0,
+                                "",
+                                [""]
+                            ]
+                        );
+                    };
+                };
+            };
+
+            if (
+                _radioA isEqualTo "" ||
+                {_radioB isEqualTo ""} ||
+                {_radioA isEqualTo _radioB} ||
+                {!(_radioA in _availableRadios)} ||
+                {!(_radioB in _availableRadios)}
+            ) then {
+                _radioA = "";
+                _radioB = "";
+            };
+
+            [
+                _radioA,
+                _radioB
+            ]
+        };
+
+        private _pair = [
+            _activeRadio
+        ] call _resolvePair;
+
+        if (
+            (_pair select 0) isEqualTo "" ||
+            {(_pair select 1) isEqualTo ""}
+        ) then {
+            _pair = [
+                _currentRadio
+            ] call _resolvePair;
+        };
+
+        if (
+            (_pair select 0) isEqualTo "" ||
+            {(_pair select 1) isEqualTo ""}
+        ) then {
+            private _mapKeys = keys _endpointMap;
+            _mapKeys sort true;
+
+            {
+                if (
+                    (_pair select 0) isEqualTo "" ||
+                    {(_pair select 1) isEqualTo ""}
+                ) then {
+                    private _candidatePair = [
+                        _x
+                    ] call _resolvePair;
+
+                    if (
+                        !(
+                            (_candidatePair select 0) isEqualTo ""
+                        ) &&
+                        {
+                            !(
+                                (_candidatePair select 1) isEqualTo ""
+                            )
+                        }
+                    ) then {
+                        _pair = _candidatePair;
+                    };
+                };
+            } forEach _mapKeys;
+        };
+
+        private _radioA = _pair select 0;
+        private _radioB = _pair select 1;
+
+        if (
+            !(_radioA isEqualTo "") &&
+            {!(_radioB isEqualTo "")}
+        ) then {
+            private _desiredPTT = [
+                _radioA,
+                _radioB
+            ];
+
+            private _thirdIndex = _assignments findIf {
+                !(_x in _desiredPTT) &&
+                {_x in _availableRadios}
+            };
+
+            if (_thirdIndex >= 0) then {
+                _desiredPTT pushBack (
+                    _assignments select _thirdIndex
+                );
+            };
+
+            if (_actualPTT isNotEqualTo _desiredPTT) then {
                 private _setResult = [
                     _desiredPTT
                 ] call acre_api_fnc_setMultiPushToTalkAssignment;
@@ -1049,15 +1214,29 @@ if (!hasInterface) exitWith {};
                 if (_setResult isEqualTo true) then {
                     missionNamespace setVariable [
                         "UKSF_PRC163_multiPTTSignature",
-                        str [_sortedGear,_desiredPTT]
+                        str [
+                            _availableRadios,
+                            _desiredPTT
+                        ]
                     ];
                 };
             } else {
                 missionNamespace setVariable [
                     "UKSF_PRC163_multiPTTSignature",
-                    str [_sortedGear,_actualPTT]
+                    str [
+                        _availableRadios,
+                        _actualPTT
+                    ]
                 ];
             };
+        } else {
+            missionNamespace setVariable [
+                "UKSF_PRC163_multiPTTSignature",
+                str [
+                    _availableRadios,
+                    _actualPTT
+                ]
+            ];
         };
     };
 
@@ -1282,12 +1461,26 @@ if (!hasInterface) exitWith {};
                         };
 
                         if (_warnedIndex < 0) then {
+                            private _slot = [
+                                _radioId,
+                                player
+                            ] call UKSF_PRC163_fnc_getBatterySlot;
+
+                            private _slotText = if (_slot > 0) then {
+                                str _slot
+                            } else {
+                                "?"
+                            };
+
                             [
-                                "AN/PRC-163 | BATTERY DEPLETED | RADIO OFF",
+                                format [
+                                    "<t align='center'>AN/PRC-163 %1<br/><t size='0.85'>BATTERY DEPLETED - RADIO OFF</t></t>",
+                                    _slotText
+                                ],
                                 1.5,
-                                [1,0.35,0.2,1],
-                                true
-                            ] call CBA_fnc_notify;
+                                player,
+                                10
+                            ] call UKSF_PRC163_fnc_notifyStatus;
                         };
 
                         {

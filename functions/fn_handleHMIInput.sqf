@@ -166,16 +166,11 @@ private _setHMIState = {
 
 private _rejectPoweredOff = {
     [
-        "AN/PRC-163 | POWER OFF",
-        0.8,
-        [
-            1,
-            0.55,
-            0.2,
-            1
-        ],
-        true
-    ] call CBA_fnc_notify;
+        "<t align='center'>AN/PRC-163<br/>POWER OFF</t>",
+        1.5,
+        player,
+        10
+    ] call UKSF_PRC163_fnc_notifyStatus;
 
     false
 };
@@ -187,18 +182,13 @@ private _rejectPresetInput = {
 
     [
         format [
-            "AN/PRC-163 | %1",
+            "<t align='center'>AN/PRC-163<br/>%1</t>",
             _message
         ],
-        0.8,
-        [
-            1,
-            0.55,
-            0.2,
-            1
-        ],
-        true
-    ] call CBA_fnc_notify;
+        1.5,
+        player,
+        10
+    ] call UKSF_PRC163_fnc_notifyStatus;
 
     false
 };
@@ -705,9 +695,52 @@ switch (_input) do {
                         0
                     ] call _setHMIState;
 
-                    [
+                    private _radioType = [
                         _targetRadio
-                    ] call UKSF_PRC163_fnc_notifyStatus;
+                    ] call acre_sys_radio_fnc_getRadioBaseClassname;
+
+                    private _typeName = getText (
+                        configFile >>
+                        "CfgAcreComponents" >>
+                        _radioType >>
+                        "name"
+                    );
+
+                    if (_typeName isEqualTo "") then {
+                        _typeName = getText (
+                            configFile >>
+                            "CfgWeapons" >>
+                            "ACRE_PRC163" >>
+                            "displayName"
+                        );
+                    };
+
+                    private _listInfo = [
+                        _targetRadio,
+                        "getListInfo"
+                    ] call acre_sys_data_fnc_dataEvent;
+
+                    private _switchColor = missionNamespace getVariable [
+                        "acre_sys_list_SwitchChannelColor",
+                        [1,0.8,0,1]
+                    ];
+
+                    [
+                        "acre_switchChannel",
+                        _typeName,
+                        _listInfo,
+                        "",
+                        0.5,
+                        _switchColor
+                    ] call acre_sys_list_fnc_displayHint;
+
+                    [
+                        "Acre_GenericClick",
+                        [0,0,0],
+                        [0,0,0],
+                        1,
+                        false
+                    ] call acre_sys_sounds_fnc_playSound;
                 };
             };
 

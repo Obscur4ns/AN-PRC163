@@ -263,8 +263,51 @@ uiNamespace setVariable [
     _targetRadio
 ];
 
-[
+private _radioType = [
     _targetRadio
-] call UKSF_PRC163_fnc_notifyStatus;
+] call acre_sys_radio_fnc_getRadioBaseClassname;
+
+private _typeName = getText (
+    configFile >>
+    "CfgAcreComponents" >>
+    _radioType >>
+    "name"
+);
+
+if (_typeName isEqualTo "") then {
+    _typeName = getText (
+        configFile >>
+        "CfgWeapons" >>
+        "ACRE_PRC163" >>
+        "displayName"
+    );
+};
+
+private _listInfo = [
+    _targetRadio,
+    "getListInfo"
+] call acre_sys_data_fnc_dataEvent;
+
+private _switchColor = missionNamespace getVariable [
+    "acre_sys_list_SwitchChannelColor",
+    [1,0.8,0,1]
+];
+
+[
+    "acre_switchChannel",
+    _typeName,
+    _listInfo,
+    "",
+    0.5,
+    _switchColor
+] call acre_sys_list_fnc_displayHint;
+
+[
+    "Acre_GenericClick",
+    [0,0,0],
+    [0,0,0],
+    1,
+    false
+] call acre_sys_sounds_fnc_playSound;
 
 true

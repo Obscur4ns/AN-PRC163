@@ -35,17 +35,13 @@ class CfgFunctions {
             class updateDialog {};
             class openGui {};
             class closeGui {};
-            class cycleRadio {};
             class selectLine {};
             class setLineChannel {};
             class cycleChannel {};
-            class getMatchingLines {};
             class dualWatchAvailability {};
             class handleMultipleTransmissions {};
             class handlePTTDown {};
             class handlePTTUp {};
-            class pttLineDown {};
-            class pttLineUp {};
             class toggleDualWatch {};
             class notifyStatus {};
         };

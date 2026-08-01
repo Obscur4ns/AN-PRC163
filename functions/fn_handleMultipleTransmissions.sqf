@@ -205,18 +205,6 @@ if (
         _radioB
     ];
 
-    missionNamespace setVariable [
-        "UKSF_PRC163_lastReceiveResult",
-        [
-            _sourceRadioId,
-            _radioA,
-            _radioB,
-            _line,
-            count _radios,
-            count _result,
-            _receiving
-        ]
-    ];
 };
 
 _result

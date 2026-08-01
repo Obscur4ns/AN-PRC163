@@ -182,11 +182,14 @@ private _batteryClass = "UKSF_PRC163_Battery";
 if !(_batteryClass in items _unit) exitWith {
     if (_showNotification) then {
         [
-            "AN/PRC-163 | NO SPARE BATTERY",
+            format [
+                "<t align='center'>AN/PRC-163 %1<br/>NO SPARE BATTERY</t>",
+                _slot
+            ],
             1.5,
-            [1,0.35,0.2,1],
-            true
-        ] call CBA_fnc_notify;
+            player,
+            10
+        ] call UKSF_PRC163_fnc_notifyStatus;
     };
 
     false
@@ -274,6 +277,18 @@ private _batteryCountAfter = {
 } count items _unit;
 
 if (_batteryCountAfter >= _batteryCountBefore) exitWith {
+    if (_showNotification) then {
+        [
+            format [
+                "<t align='center'>AN/PRC-163 %1<br/>BATTERY REPLACEMENT FAILED</t>",
+                _slot
+            ],
+            1.5,
+            player,
+            10
+        ] call UKSF_PRC163_fnc_notifyStatus;
+    };
+
     false
 };
 
@@ -348,6 +363,19 @@ private _initialized = [
 
 if (!_initialized) exitWith {
     _unit addItem _batteryClass;
+
+    if (_showNotification) then {
+        [
+            format [
+                "<t align='center'>AN/PRC-163 %1<br/>BATTERY REPLACEMENT FAILED</t>",
+                _slot
+            ],
+            1.5,
+            player,
+            10
+        ] call UKSF_PRC163_fnc_notifyStatus;
+    };
+
     false
 };
 
@@ -369,14 +397,14 @@ if (!_initialized) exitWith {
 if (_showNotification) then {
     [
         format [
-            "AN/PRC-163 %1 | BATTERY REPLACED | 100%2",
+            "<t align='center'>AN/PRC-163 %1<br/>BATTERY REPLACED: 100%2</t>",
             _slot,
             "%"
         ],
         1.5,
-        [0.78,0.92,0.72,1],
-        true
-    ] call CBA_fnc_notify;
+        player,
+        10
+    ] call UKSF_PRC163_fnc_notifyStatus;
 };
 
 true
