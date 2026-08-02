@@ -16,6 +16,7 @@ class CfgPatches {
             "cba_settings",
             "acre_sys_modes",
             "acre_sys_prc152",
+            "acre_sys_antenna",
             "ace_common",
             "ace_interact_menu",
             "A3_Weapons_F",

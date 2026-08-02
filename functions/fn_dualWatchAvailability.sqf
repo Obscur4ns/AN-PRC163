@@ -22,19 +22,13 @@ if !(_nativeFunction isEqualType {}) exitWith {
     false
 };
 
-private _nativeMatch = [
-    _transmittingRadio,
-    _receivingRadio
-] call _nativeFunction;
-
-if (_nativeMatch isEqualTo true) exitWith {
-    true
-};
-
 private _prefix = "acre_prc163_id_";
 
 if (_receivingRadio find _prefix != 0) exitWith {
-    false
+    [
+        _transmittingRadio,
+        _receivingRadio
+    ] call _nativeFunction
 };
 
 private _pilotEnabled = missionNamespace getVariable [
@@ -44,6 +38,7 @@ private _pilotEnabled = missionNamespace getVariable [
 
 private _radioA = "";
 private _radioB = "";
+private _receivingLine = -1;
 
 if (_pilotEnabled) then {
     private _endpointMap = missionNamespace getVariable [
@@ -57,30 +52,56 @@ if (_pilotEnabled) then {
         []
     ];
 
-    if (_entry isNotEqualTo []) then {
+    if !(_entry isEqualTo []) then {
         _radioA = _receivingRadio;
+        _receivingLine = 0;
     } else {
-        private _primaryIndex = _mapKeys findIf {
-            private _candidateEntry = _endpointMap getOrDefault [
-                _x,
-                []
-            ];
+        private _statePrimary = [
+            _receivingRadio,
+            "getState",
+            "prc163PrimaryRadio"
+        ] call acre_sys_data_fnc_dataEvent;
 
-            toLower (
-                _candidateEntry param [
-                    0,
-                    "",
-                    [""]
-                ]
-            ) isEqualTo _receivingRadio
+        if (
+            !isNil "_statePrimary" &&
+            {_statePrimary isEqualType ""}
+        ) then {
+            _statePrimary = toLower _statePrimary;
+
+            if (_statePrimary in _mapKeys) then {
+                _radioA = _statePrimary;
+                _entry = _endpointMap getOrDefault [
+                    _radioA,
+                    []
+                ];
+                _receivingLine = 1;
+            };
         };
 
-        if (_primaryIndex >= 0) then {
-            _radioA = _mapKeys select _primaryIndex;
-            _entry = _endpointMap getOrDefault [
-                _radioA,
-                []
-            ];
+        if (_radioA isEqualTo "") then {
+            private _primaryIndex = _mapKeys findIf {
+                private _candidateEntry = _endpointMap getOrDefault [
+                    _x,
+                    []
+                ];
+
+                toLower (
+                    _candidateEntry param [
+                        0,
+                        "",
+                        [""]
+                    ]
+                ) isEqualTo _receivingRadio
+            };
+
+            if (_primaryIndex >= 0) then {
+                _radioA = _mapKeys select _primaryIndex;
+                _entry = _endpointMap getOrDefault [
+                    _radioA,
+                    []
+                ];
+                _receivingLine = 1;
+            };
         };
     };
 
@@ -102,10 +123,12 @@ if (_pilotEnabled) then {
     if (
         !(_radioA in _gearRadios) ||
         {_radioA isEqualTo _radioB} ||
-        {_radioB find _prefix != 0}
+        {_radioB find _prefix != 0} ||
+        {!(_receivingLine in [0,1])}
     ) then {
         _radioA = "";
         _radioB = "";
+        _receivingLine = -1;
     };
 } else {
     private _radioIds = (
@@ -148,6 +171,13 @@ if (_pilotEnabled) then {
             ) then {
                 _radioA = _candidateA;
                 _radioB = _candidateB;
+                _receivingLine = if (
+                    (_sourceNumber mod 2) isEqualTo 1
+                ) then {
+                    0
+                } else {
+                    1
+                };
             };
         };
     };
@@ -155,7 +185,8 @@ if (_pilotEnabled) then {
 
 if (
     _radioA isEqualTo "" ||
-    {_radioB isEqualTo ""}
+    {_radioB isEqualTo ""} ||
+    {!(_receivingLine in [0,1])}
 ) exitWith {
     false
 };
@@ -166,7 +197,24 @@ private _dualWatch = [
     "prc163DualWatch"
 ] call acre_sys_data_fnc_dataEvent;
 
-if !(_dualWatch isEqualTo 1) exitWith {
+if !(_dualWatch in [0,1]) then {
+    _dualWatch = 0;
+};
+
+private _selectedLine = [
+    _radioA,
+    "getState",
+    "prc163SelectedLine"
+] call acre_sys_data_fnc_dataEvent;
+
+if !(_selectedLine in [0,1]) then {
+    _selectedLine = 0;
+};
+
+if (
+    _dualWatch isEqualTo 0 &&
+    {_receivingLine isNotEqualTo _selectedLine}
+) exitWith {
     false
 };
 
@@ -179,89 +227,65 @@ if !(_transmitData isEqualType locationNull) exitWith {
     false
 };
 
+private _channelState = [
+    "prc163ChannelA",
+    "prc163ChannelB"
+] select _receivingLine;
+
+private _receiveChannel = [
+    _radioA,
+    "getState",
+    _channelState
+] call acre_sys_data_fnc_dataEvent;
+
+if (
+    isNil "_receiveChannel" ||
+    {!(_receiveChannel isEqualType 0)}
+) then {
+    _receiveChannel = _receivingLine;
+};
+
+private _receiveData = [
+    _receivingRadio,
+    "getChannelData",
+    _receiveChannel
+] call acre_sys_data_fnc_dataEvent;
+
+if !(_receiveData isEqualType locationNull) exitWith {
+    false
+};
+
 private _transmitMode = _transmitData getVariable [
     "mode",
     ""
 ];
+
+private _receiveMode = _receiveData getVariable [
+    "mode",
+    ""
+];
+
+private _validMode = (
+    _transmitMode in [
+        "singleChannel",
+        "singleChannelPRR"
+    ]
+) && {
+    _transmitMode isEqualTo _receiveMode
+};
+
+if (!_validMode) exitWith {
+    false
+};
 
 private _transmitFrequency = _transmitData getVariable [
     "frequencyTX",
     -1
 ];
 
-if (
-    !(_transmitMode in [
-        "singleChannel",
-        "singleChannelPRR"
-    ]) ||
-    {_transmitFrequency < 0}
-) exitWith {
-    false
-};
-
-private _channelA = [
-    _radioA,
-    "getState",
-    "prc163ChannelA"
-] call acre_sys_data_fnc_dataEvent;
-
-private _channelB = [
-    _radioA,
-    "getState",
-    "prc163ChannelB"
-] call acre_sys_data_fnc_dataEvent;
-
-if (isNil "_channelA") then {
-    _channelA = 0;
-};
-
-if (isNil "_channelB") then {
-    _channelB = 1;
-};
-
-private _lineData = [
-    [
-        _radioA,
-        _channelA
-    ],
-    [
-        _radioB,
-        _channelB
-    ]
+private _receiveFrequency = _receiveData getVariable [
+    "frequencyRX",
+    -2
 ];
 
-private _matchingIndex = _lineData findIf {
-    _x params [
-        "_receiveRadio",
-        "_receiveChannel"
-    ];
-
-    private _receiveData = [
-        _receiveRadio,
-        "getChannelData",
-        _receiveChannel
-    ] call acre_sys_data_fnc_dataEvent;
-
-    if !(_receiveData isEqualType locationNull) exitWith {
-        false
-    };
-
-    private _receiveMode = _receiveData getVariable [
-        "mode",
-        ""
-    ];
-
-    private _receiveFrequency = _receiveData getVariable [
-        "frequencyRX",
-        -1
-    ];
-
-    _transmitMode isEqualTo _receiveMode &&
-    {
-        abs (
-            _transmitFrequency - _receiveFrequency
-        ) < 0.0001
-    }
-};
-
-_matchingIndex >= 0
+_transmitFrequency isEqualTo _receiveFrequency

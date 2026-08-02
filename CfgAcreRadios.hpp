@@ -45,4 +45,27 @@ class CfgAcreComponents {
             };
         };
     };
+
+    class ACRE_243CM_VHF_TNC {
+        compatibleRadios[] = {
+            "ACRE_PRC148",
+            "ACRE_PRC152",
+            "ACRE_PRC163",
+            "ACRE_PRC117F",
+            "ACRE_PRC77",
+            "ACRE_SEM70"
+        };
+    };
+
+    class ACRE_643CM_VHF_TNC {
+        compatibleRadios[] = {
+            "ACRE_PRC148",
+            "ACRE_PRC152",
+            "ACRE_PRC163",
+            "ACRE_PRC117F",
+            "ACRE_PRC77",
+            "ACRE_SEM70"
+        };
+    };
+
 };

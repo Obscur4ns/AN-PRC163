@@ -157,31 +157,13 @@ private _pairRadios = [
     _radioB
 ];
 
-private _selectedLine = [
-    _radioA,
-    "getState",
-    "prc163SelectedLine"
-] call acre_sys_data_fnc_dataEvent;
+private _pttLine = _pairRadios find _sourceRadioId;
 
-if !(_selectedLine in [0,1]) then {
-    _selectedLine = 0;
+if !(_pttLine in [0,1]) exitWith {
+    false
 };
 
-private _pttLine = [
-    _sourceRadioId,
-    "getState",
-    "prc163EndpointLine"
-] call acre_sys_data_fnc_dataEvent;
-
-if !(_pttLine in [0,1]) then {
-    _pttLine = _pairRadios find _sourceRadioId;
-};
-
-if !(_pttLine in [0,1]) then {
-    _pttLine = _selectedLine;
-};
-
-private _targetRadioId = _pairRadios select _pttLine;
+private _targetRadioId = _sourceRadioId;
 
 private _channelState = [
     "prc163ChannelA",
@@ -213,53 +195,6 @@ if (
     "setCurrentChannel",
     _selectedChannel
 ] call acre_sys_data_fnc_dataEvent;
-
-private _previousCurrentRadio = [] call acre_api_fnc_getCurrentRadio;
-
-if !(_previousCurrentRadio isEqualType "") then {
-    _previousCurrentRadio = "";
-};
-
-_previousCurrentRadio = toLower _previousCurrentRadio;
-
-private _previousActiveRadio = missionNamespace getVariable [
-    "UKSF_PRC163_activeRadio",
-    _previousCurrentRadio
-];
-
-if !(_previousActiveRadio isEqualType "") then {
-    _previousActiveRadio = _previousCurrentRadio;
-};
-
-_previousActiveRadio = toLower _previousActiveRadio;
-
-private _restoreCurrentRadio = {
-    if !(_previousCurrentRadio isEqualTo "") then {
-        [
-            _previousCurrentRadio
-        ] call acre_api_fnc_setCurrentRadio;
-    };
-
-    if !(_previousActiveRadio isEqualTo "") then {
-        missionNamespace setVariable [
-            "UKSF_PRC163_activeRadio",
-            _previousActiveRadio
-        ];
-    };
-};
-
-private _setCurrentSuccess = [
-    _targetRadioId
-] call acre_api_fnc_setCurrentRadio;
-
-if (!_setCurrentSuccess) exitWith {
-    false
-};
-
-missionNamespace setVariable [
-    "UKSF_PRC163_activeRadio",
-    _targetRadioId
-];
 
 {
     [
@@ -352,11 +287,7 @@ if (!_result) exitWith {
         ] call acre_sys_data_fnc_dataEvent;
     } forEach _pairRadios;
 
-    call _restoreCurrentRadio;
-
     false
 };
-
-call _restoreCurrentRadio;
 
 true
