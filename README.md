@@ -330,7 +330,7 @@ Before release:
 
 ## Credits
 
-Developed for UKSF.
+Developed for Z Squadron UKSF milsim.
 
 Built for use with:
 
