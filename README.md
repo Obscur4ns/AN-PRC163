@@ -1,6 +1,6 @@
 # UKSF AN/PRC-163 for ACRE2
 
-A custom AN/PRC-163 radio addon for Arma 3 and ACRE2, developed for Z Squadron UKSF mil-sim use.
+A custom AN/PRC-163 radio addon for Arma 3 and ACRE2, developed for Z Squadron UKSF milsim use.
 
 The addon provides two independently configurable radio lines inside one physical radio, allowing the player to monitor and transmit on two channels while retaining native ACRE interaction patterns.
 
@@ -327,6 +327,26 @@ Before release:
 8. Test Ground Spike and Ground Spike Mast connection.
 9. Test dropped world objects and pickup.
 10. Test radio range against the native ACRE PRC-152 on at least one official terrain.
+
+
+## Licence
+
+Except for identified third-party material, original UKSF AN/PRC-163 material is released under the **Arma Public License No Derivatives (APL-ND)**.
+
+The general public may use and redistribute unmodified releases under the APL-ND but may not distribute modified versions.
+
+Qualifying ACRE2 Project Maintainers receive separate permission to create public forks and publish modified releases under `ACRE2_PROJECT_EXCEPTION.md`.
+
+See:
+
+```text
+LICENSE.md
+ACRE2_PROJECT_EXCEPTION.md
+THIRD_PARTY_NOTICES.md
+AUTHORISED_MAINTAINERS.md
+```
+
+The licence applies only to material that UKSF Surplus owns or is authorised to license. Third-party code, assets, logos, names, and trademarks remain subject to their own terms.
 
 ## Credits
 
