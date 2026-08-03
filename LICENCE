@@ -1,0 +1,109 @@
+# UKSF AN/PRC-163 Licence
+
+Copyright © 2026 UKSF Surplus.
+
+## 1. Public licence
+
+Except for material identified as third-party material or otherwise excluded below, the original UKSF AN/PRC-163 material is made available under the:
+
+**Arma Public License No Derivatives (APL-ND)**
+
+The legally binding licence text is published by Bohemia Interactive at:
+
+https://www.bohemia.net/en/licenses/arma-public-license-nd
+
+The required attribution is:
+
+> UKSF AN/PRC-163 by UKSF Surplus
+
+The APL-ND permits non-commercial, Arma-only use and redistribution of unmodified material. Adapted material may be produced for non-commercial, Arma-only purposes, but may not be shared unless an additional written permission applies.
+
+## 2. ACRE2 Project Exception
+
+The copyright holder grants additional rights to qualifying ACRE2 Project Maintainers under:
+
+`ACRE2_PROJECT_EXCEPTION.md`
+
+That exception permits qualifying ACRE2 Project Maintainers to create public forks and distribute modified releases under its stated conditions.
+
+The exception does not apply to the general public.
+
+## 3. Material covered
+
+Subject to ownership and the exclusions below, this licence applies to original UKSF AN/PRC-163 material supplied with the project, including original:
+
+- SQF source code;
+- configuration source;
+- documentation;
+- user-interface layouts and artwork;
+- models and textures;
+- icons;
+- sounds;
+- packaging and build files.
+
+A file is covered only to the extent that UKSF Surplus owns or controls the copyright and has authority to license it.
+
+## 4. Excluded material
+
+This licence does not grant rights in:
+
+- third-party source code or assets;
+- material copied or adapted from ACRE2, ACE3, CBA_A3, Arma 3, Hunter'z Persistency, or another project;
+- trademarks, trade names, product names, logos, or branding owned by another party;
+- the L3Harris name or logo;
+- Bohemia Interactive, Arma, ACRE2, ACE3, CBA, or other third-party branding;
+- material separately identified under another licence.
+
+Excluded material remains subject to its own licence, permission, or applicable law.
+
+See `THIRD_PARTY_NOTICES.md`.
+
+## 5. No endorsement
+
+Use of third-party names, product designations, interfaces, or compatibility references does not imply affiliation with or endorsement by:
+
+- L3Harris Technologies;
+- Bohemia Interactive;
+- the ACRE2 project;
+- the ACE3 project;
+- the CBA_A3 project;
+- any military organisation or government body.
+
+## 6. Additional permissions
+
+No person may distribute a modified version unless one of the following applies:
+
+1. the person qualifies under `ACRE2_PROJECT_EXCEPTION.md`;
+2. the person is expressly listed in `AUTHORISED_MAINTAINERS.md`; or
+3. the copyright holder provides separate written permission.
+
+Private modifications remain governed by the APL-ND.
+
+## 7. No warranty
+
+The material is provided under the warranty disclaimer and liability limitations in the APL-ND.
+
+Nothing in this notice creates a warranty, support obligation, or promise of continued maintenance.
+
+## 8. Precedence
+
+Where a file contains a more specific licence notice, that specific notice controls for that file.
+
+For original UKSF AN/PRC-163 material:
+
+1. the APL-ND is the public licence;
+2. `ACRE2_PROJECT_EXCEPTION.md` supplies additional rights only to qualifying ACRE2 Project Maintainers;
+3. separate written permissions apply only to their named recipients and stated scope.
+
+## 9. Contact and permission requests
+
+Permission requests should identify:
+
+- the person or organisation requesting permission;
+- the files or components involved;
+- the intended modification;
+- the proposed distribution method;
+- the intended licence;
+- whether source and compiled releases will be public.
+
+The copyright holder should publish a stable contact method in the release README or Workshop page before public release.
