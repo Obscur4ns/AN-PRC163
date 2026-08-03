@@ -19,6 +19,11 @@ if (!hasInterface) exitWith {};
         createHashMap
     ];
 
+    private _missingSince = missionNamespace getVariable [
+        "UKSF_PRC163_primaryMissingSince",
+        createHashMap
+    ];
+
     private _cleanupEndpoint = {
         params [
             "_primary",
@@ -41,6 +46,18 @@ if (!hasInterface) exitWith {};
             ]
         );
 
+        private _rackOwner = if !(_rackId isEqualTo "") then {
+            [
+                _rackId
+            ] call acre_sys_rack_fnc_getVehicleFromRack
+        } else {
+            objNull
+        };
+
+        if (isNull _rackOwner) then {
+            _rackOwner = player;
+        };
+
         private _currentRadio = toLower (
             [] call acre_api_fnc_getCurrentRadio
         );
@@ -56,7 +73,7 @@ if (!hasInterface) exitWith {};
 
         if !(_companion isEqualTo "") then {
             [
-                player,
+                _rackOwner,
                 player,
                 _companion
             ] call acre_sys_rack_fnc_stopUsingMountedRadio;
@@ -99,7 +116,7 @@ if (!hasInterface) exitWith {};
                 ]
             ] call acre_sys_data_fnc_dataEvent;
 
-            private _vehicleRacks = player getVariable [
+            private _vehicleRacks = _rackOwner getVariable [
                 "acre_sys_rack_vehicleRacks",
                 []
             ];
@@ -108,7 +125,7 @@ if (!hasInterface) exitWith {};
                 toLower _x isNotEqualTo _rackId
             };
 
-            player setVariable [
+            _rackOwner setVariable [
                 "acre_sys_rack_vehicleRacks",
                 _vehicleRacks,
                 true
@@ -185,6 +202,11 @@ if (!hasInterface) exitWith {};
         ];
 
         missionNamespace setVariable [
+            "UKSF_PRC163_primaryMissingSince",
+            createHashMap
+        ];
+
+        missionNamespace setVariable [
             "UKSF_PRC163_companionStatus",
             "DISABLED"
         ];
@@ -217,28 +239,116 @@ if (!hasInterface) exitWith {};
 
     _primaries sort true;
 
+    private _rackHost = objectParent player;
+
+    if (isNull _rackHost) then {
+        _rackHost = player;
+    };
+
+    private _rackAllowed = [
+        "external"
+    ];
+
+    if !(_rackHost isEqualTo player) then {
+        private _rackRole = "";
+
+        {
+            if (player isEqualTo (_x select 0)) exitWith {
+                _rackRole = toLower (
+                    _x select 1
+                );
+
+                if (_rackRole isEqualTo "cargo") then {
+                    _rackRole = format [
+                        "%1_%2",
+                        _rackRole,
+                        _x select 2
+                    ];
+                } else {
+                    if (_rackRole isEqualTo "turret") then {
+                        _rackRole = format [
+                            "%1_%2",
+                            _rackRole,
+                            _x select 3
+                        ];
+                    };
+                };
+
+                if (isTurnedOut player) then {
+                    _rackRole = format [
+                        "turnedout_%1",
+                        _rackRole
+                    ];
+                };
+            };
+        } forEach (
+            fullCrew [
+                _rackHost,
+                "",
+                true
+            ]
+        );
+
+        _rackAllowed = if (_rackRole isEqualTo "") then {
+            [
+                "inside"
+            ]
+        } else {
+            [
+                _rackRole
+            ]
+        };
+    };
+
     {
         private _primary = _x;
 
-        if !(_primary in _primaries) then {
-            private _entry = _map getOrDefault [
+        if (_primary in _primaries) then {
+            _missingSince deleteAt _primary;
+        } else {
+            private _missingAt = _missingSince getOrDefault [
                 _primary,
-                []
+                -1
             ];
 
-            [
-                _primary,
-                _entry
-            ] call _cleanupEndpoint;
+            if (_missingAt < 0) then {
+                _missingSince set [
+                    _primary,
+                    diag_tickTime
+                ];
+            } else {
+                if (
+                    diag_tickTime - _missingAt >= 3
+                ) then {
+                    private _entry = _map getOrDefault [
+                        _primary,
+                        []
+                    ];
 
-            _map deleteAt _primary;
-            _pending deleteAt _primary;
+                    [
+                        _primary,
+                        _entry
+                    ] call _cleanupEndpoint;
+
+                    _map deleteAt _primary;
+                    _pending deleteAt _primary;
+                    _missingSince deleteAt _primary;
+                };
+            };
         };
     } forEach (
         keys _map
     );
 
-    private _rackIds = player getVariable [
+    {
+        if !(_x in (keys _map)) then {
+            _missingSince deleteAt _x;
+        };
+    } forEach (
+        keys _missingSince
+    );
+
+    private _rackIds = _rackHost getVariable [
         "acre_sys_rack_vehicleRacks",
         []
     ];
@@ -304,7 +414,7 @@ if (!hasInterface) exitWith {};
             _entryValid = (
                 _rackPresent &&
                 {_mounted isEqualTo _companion} &&
-                {_owner isEqualTo player}
+                {_owner isEqualTo _rackHost}
             );
         };
 
@@ -351,7 +461,7 @@ if (!hasInterface) exitWith {};
 
                     if (
                         _candidateRadio find _prefix isEqualTo 0 &&
-                        {_candidateOwner isEqualTo player}
+                        {_candidateOwner isEqualTo _rackHost}
                     ) then {
                         _rackId = toLower _candidateRack;
                         _companion = _candidateRadio;
@@ -369,7 +479,7 @@ if (!hasInterface) exitWith {};
                 ];
 
                 if (
-                    diag_tickTime - _requestedAt >= 15
+                    diag_tickTime - _requestedAt >= 3
                 ) then {
                     player setVariable [
                         "acre_sys_rack_initPlayer",
@@ -378,14 +488,12 @@ if (!hasInterface) exitWith {};
                     ];
 
                     [
-                        player,
+                        _rackHost,
                         "ACRE_VRC110",
                         _rackName,
                         "RT2",
                         false,
-                        [
-                            "external"
-                        ],
+                        _rackAllowed,
                         [],
                         "ACRE_PRC163",
                         [],
@@ -419,9 +527,7 @@ if (!hasInterface) exitWith {};
                 "setState",
                 [
                     "allowed",
-                    [
-                        "external"
-                    ]
+                    _rackAllowed
                 ]
             ] call acre_sys_data_fnc_dataEvent;
 
@@ -515,6 +621,53 @@ if (!hasInterface) exitWith {};
                 ]
             ] call acre_sys_data_fnc_dataEvent;
 
+            private _initialized = [
+                _primary,
+                "getState",
+                "prc163Initialized"
+            ] call acre_sys_data_fnc_dataEvent;
+
+            if (
+                isNil "_initialized" ||
+                {!_initialized}
+            ) then {
+                [
+                    _primary
+                ] call UKSF_PRC163_fnc_initializeState;
+            };
+
+            private _channelA = [
+                _primary,
+                "getState",
+                "prc163ChannelA"
+            ] call acre_sys_data_fnc_dataEvent;
+
+            if !(_channelA isEqualType 0) then {
+                _channelA = 0;
+            };
+
+            private _channelB = [
+                _primary,
+                "getState",
+                "prc163ChannelB"
+            ] call acre_sys_data_fnc_dataEvent;
+
+            if !(_channelB isEqualType 0) then {
+                _channelB = 0;
+            };
+
+            [
+                _primary,
+                "setCurrentChannel",
+                _channelA
+            ] call acre_sys_data_fnc_dataEvent;
+
+            [
+                _companion,
+                "setCurrentChannel",
+                _channelB
+            ] call acre_sys_data_fnc_dataEvent;
+
             private _radioList = (
                 [] call acre_api_fnc_getCurrentRadioList
             ) apply {
@@ -531,7 +684,7 @@ if (!hasInterface) exitWith {};
                 };
 
                 [
-                    player,
+                    _rackHost,
                     player,
                     _companion
                 ] call acre_sys_rack_fnc_startUsingMountedRadio;
@@ -572,6 +725,11 @@ if (!hasInterface) exitWith {};
     ];
 
     missionNamespace setVariable [
+        "UKSF_PRC163_primaryMissingSince",
+        _missingSince
+    ];
+
+    missionNamespace setVariable [
         "UKSF_PRC163_companionStatus",
         format [
             "ACTIVE %1/%2",
@@ -582,6 +740,175 @@ if (!hasInterface) exitWith {};
         ]
     ];
 },0.5] call CBA_fnc_addPerFrameHandler;
+
+[{
+    if (isNull player) exitWith {};
+
+    private _zeusDisplay = findDisplay 312;
+
+    if (isNull _zeusDisplay) exitWith {};
+
+    private _keyUpId = _zeusDisplay getVariable [
+        "UKSF_PRC163_zeusPTTKeyUpEH",
+        -1
+    ];
+
+    if (_keyUpId < 0) then {
+        _keyUpId = _zeusDisplay displayAddEventHandler [
+            "KeyUp",
+            {
+                params [
+                    "_display",
+                    "_key"
+                ];
+
+                private _prefix = "acre_prc163_id_";
+
+                private _broadcastRadio = toLower (
+                    missionNamespace getVariable [
+                        "ACRE_BROADCASTING_RADIOID",
+                        ""
+                    ]
+                );
+
+                private _rememberedRadio = toLower (
+                    missionNamespace getVariable [
+                        "UKSF_PRC163_pttRadio",
+                        ""
+                    ]
+                );
+
+                if (
+                    _broadcastRadio find _prefix != 0 &&
+                    {_rememberedRadio find _prefix != 0}
+                ) exitWith {
+                    false
+                };
+
+                private _activePTT = missionNamespace getVariable [
+                    "ACRE_ACTIVE_PTTKEY",
+                    -2
+                ];
+
+                private _actionName = switch (_activePTT) do {
+                    case -1: {
+                        "DefaultPTTKey"
+                    };
+
+                    case 0: {
+                        "AltPTTKey1"
+                    };
+
+                    case 1: {
+                        "AltPTTKey2"
+                    };
+
+                    case 2: {
+                        "AltPTTKey3"
+                    };
+
+                    default {
+                        ""
+                    };
+                };
+
+                if (_actionName isEqualTo "") exitWith {
+                    false
+                };
+
+                private _keybind = [
+                    "ACRE2",
+                    _actionName
+                ] call CBA_fnc_getKeybind;
+
+                if (isNil "_keybind") exitWith {
+                    false
+                };
+
+                private _bindings = _keybind param [
+                    8,
+                    []
+                ];
+
+                if (_bindings isEqualTo []) then {
+                    _bindings = [
+                        _keybind param [
+                            5,
+                            [
+                                -1,
+                                [
+                                    false,
+                                    false,
+                                    false
+                                ]
+                            ]
+                        ]
+                    ];
+                };
+
+                private _releasedPTT = _bindings findIf {
+                    (
+                        _x param [
+                            0,
+                            -1
+                        ]
+                    ) isEqualTo _key
+                } >= 0;
+
+                if (_releasedPTT) then {
+                    [] call acre_sys_core_fnc_handleMultiPttKeyPressUp;
+                };
+
+                false
+            }
+        ];
+
+        _zeusDisplay setVariable [
+            "UKSF_PRC163_zeusPTTKeyUpEH",
+            _keyUpId
+        ];
+    };
+
+    private _unloadId = _zeusDisplay getVariable [
+        "UKSF_PRC163_zeusPTTUnloadEH",
+        -1
+    ];
+
+    if (_unloadId < 0) then {
+        _unloadId = _zeusDisplay displayAddEventHandler [
+            "Unload",
+            {
+                private _prefix = "acre_prc163_id_";
+
+                private _broadcastRadio = toLower (
+                    missionNamespace getVariable [
+                        "ACRE_BROADCASTING_RADIOID",
+                        ""
+                    ]
+                );
+
+                private _rememberedRadio = toLower (
+                    missionNamespace getVariable [
+                        "UKSF_PRC163_pttRadio",
+                        ""
+                    ]
+                );
+
+                if (
+                    _broadcastRadio find _prefix isEqualTo 0 ||
+                    {_rememberedRadio find _prefix isEqualTo 0}
+                ) then {
+                    [] call acre_sys_core_fnc_handleMultiPttKeyPressUp;
+                };
+            }
+        ];
+
+        _zeusDisplay setVariable [
+            "UKSF_PRC163_zeusPTTUnloadEH",
+            _unloadId
+        ];
+    };
+},0.1] call CBA_fnc_addPerFrameHandler;
 
 [{
     if (isNull player) exitWith {};

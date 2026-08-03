@@ -12,16 +12,18 @@ private _rememberedRadioId = toLower (
     ]
 );
 
-private _pilotEnabled = missionNamespace getVariable [
-    "UKSF_PRC163_SingleInstancePilot",
-    false
-];
-
-private _radioA = "";
-private _radioB = "";
 private _targetRadioId = _rememberedRadioId;
 
-private _resolvePilotEndpoint = {
+if (
+    _targetRadioId isEqualTo "" ||
+    {_targetRadioId find _prefix != 0}
+) then {
+    _targetRadioId = _sourceRadioId;
+};
+
+private _releaseRadios = [];
+
+private _addReleaseRadio = {
     params [
         ["_candidate","",[""]]
     ];
@@ -29,28 +31,56 @@ private _resolvePilotEndpoint = {
     private _candidateId = toLower _candidate;
 
     if (
-        _candidateId isEqualTo "" ||
-        {_candidateId find _prefix != 0}
-    ) exitWith {
-        []
+        _candidateId find _prefix isEqualTo 0 &&
+        {!(_candidateId in _releaseRadios)}
+    ) then {
+        _releaseRadios pushBack _candidateId;
     };
+};
 
+[
+    _targetRadioId
+] call _addReleaseRadio;
+
+[
+    _sourceRadioId
+] call _addReleaseRadio;
+
+private _radioA = "";
+private _radioB = "";
+
+private _pilotEnabled = missionNamespace getVariable [
+    "UKSF_PRC163_SingleInstancePilot",
+    false
+];
+
+if (_pilotEnabled) then {
     private _endpointMap = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
     ];
 
     private _mapKeys = keys _endpointMap;
-    private _entry = _endpointMap getOrDefault [
-        _candidateId,
-        []
-    ];
+    private _resolveCandidates = +_releaseRadios;
 
-    private _primary = "";
+    {
+        private _candidate = _x;
+        private _entry = _endpointMap getOrDefault [
+            _candidate,
+            []
+        ];
 
-    if (_entry isNotEqualTo []) then {
-        _primary = _candidateId;
-    } else {
+        if (_entry isNotEqualTo []) exitWith {
+            _radioA = _candidate;
+            _radioB = toLower (
+                _entry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            );
+        };
+
         private _primaryIndex = _mapKeys findIf {
             private _candidateEntry = _endpointMap getOrDefault [
                 _x,
@@ -63,168 +93,94 @@ private _resolvePilotEndpoint = {
                     "",
                     [""]
                 ]
-            ) isEqualTo _candidateId
+            ) isEqualTo _candidate
         };
 
-        if (_primaryIndex >= 0) then {
-            _primary = _mapKeys select _primaryIndex;
+        if (_primaryIndex >= 0) exitWith {
+            _radioA = toLower (
+                _mapKeys select _primaryIndex
+            );
+
             _entry = _endpointMap getOrDefault [
-                _primary,
+                _radioA,
                 []
             ];
+
+            _radioB = toLower (
+                _entry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            );
         };
-    };
-
-    _primary = toLower _primary;
-
-    private _companion = toLower (
-        _entry param [
-            0,
-            "",
-            [""]
-        ]
-    );
-
-    private _gearRadios = (
-        [player] call acre_sys_core_fnc_getGear
-    ) apply {
-        toLower _x
-    };
+    } forEach _resolveCandidates;
+} else {
+    private _pairSource = _targetRadioId;
 
     if (
-        !(_primary in _gearRadios) ||
-        {_primary isEqualTo _companion} ||
-        {_companion find _prefix != 0}
-    ) exitWith {
-        []
+        _pairSource isEqualTo "" ||
+        {_pairSource find _prefix != 0}
+    ) then {
+        _pairSource = _sourceRadioId;
     };
 
-    [
-        _primary,
-        _companion
-    ]
-};
-
-if (_pilotEnabled) then {
-    private _resolvedPair = [
-        _targetRadioId
-    ] call _resolvePilotEndpoint;
-
-    if (_resolvedPair isEqualTo []) then {
-        _targetRadioId = _sourceRadioId;
-
-        _resolvedPair = [
-            _targetRadioId
-        ] call _resolvePilotEndpoint;
-    };
-
-    if (_resolvedPair isNotEqualTo []) then {
-        _radioA = _resolvedPair select 0;
-        _radioB = _resolvedPair select 1;
-    };
-} else {
-    private _radioEntries = (
-        ([player] call acre_sys_core_fnc_getGear) select {
-            toLower _x find _prefix isEqualTo 0
-        }
-    ) apply {
-        private _id = toLower _x;
-        private _number = parseNumber (
-            _id select [
+    if (_pairSource find _prefix isEqualTo 0) then {
+        private _sourceNumber = parseNumber (
+            _pairSource select [
                 count _prefix
             ]
         );
 
-        [
-            _number,
-            _id
-        ]
-    };
+        if (_sourceNumber >= 1) then {
+            private _radioANumber = if (
+                (_sourceNumber mod 2) isEqualTo 1
+            ) then {
+                _sourceNumber
+            } else {
+                _sourceNumber - 1
+            };
 
-    private _targetEntryIndex = _radioEntries findIf {
-        (_x select 1) isEqualTo _targetRadioId
-    };
+            _radioA = format [
+                "%1%2",
+                _prefix,
+                _radioANumber
+            ];
 
-    if (_targetEntryIndex < 0) then {
-        _targetRadioId = _sourceRadioId;
-
-        _targetEntryIndex = _radioEntries findIf {
-            (_x select 1) isEqualTo _targetRadioId
-        };
-    };
-
-    if (_targetEntryIndex >= 0) then {
-        private _targetNumber = (
-            _radioEntries select _targetEntryIndex
-        ) select 0;
-
-        private _radioANumber = if (
-            (_targetNumber mod 2) isEqualTo 1
-        ) then {
-            _targetNumber
-        } else {
-            _targetNumber - 1
-        };
-
-        private _radioAIndex = _radioEntries findIf {
-            (_x select 0) isEqualTo _radioANumber
-        };
-
-        private _radioBIndex = _radioEntries findIf {
-            (_x select 0) isEqualTo (
+            _radioB = format [
+                "%1%2",
+                _prefix,
                 _radioANumber + 1
-            )
-        };
-
-        if (
-            _radioAIndex >= 0 &&
-            {_radioBIndex >= 0}
-        ) then {
-            _radioA = (
-                _radioEntries select _radioAIndex
-            ) select 1;
-
-            _radioB = (
-                _radioEntries select _radioBIndex
-            ) select 1;
+            ];
         };
     };
 };
 
-if (
-    _radioA isEqualTo "" ||
-    {_radioB isEqualTo ""}
-) exitWith {
-    missionNamespace setVariable [
-        "UKSF_PRC163_pttRadio",
-        nil
-    ];
+private _released = false;
 
-    false
-};
+{
+    private _result = [
+        _x
+    ] call acre_sys_prc152_fnc_handlePTTUp;
 
-private _pairRadios = [
+    if (_result) then {
+        _released = true;
+    };
+} forEach _releaseRadios;
+
+private _stateRadios = +_releaseRadios;
+
+{
+    if (
+        _x find _prefix isEqualTo 0 &&
+        {!(_x in _stateRadios)}
+    ) then {
+        _stateRadios pushBack _x;
+    };
+} forEach [
     _radioA,
     _radioB
 ];
-
-if !(_targetRadioId in _pairRadios) then {
-    private _selectedLine = [
-        _radioA,
-        "getState",
-        "prc163SelectedLine"
-    ] call acre_sys_data_fnc_dataEvent;
-
-    if !(_selectedLine in [0,1]) then {
-        _selectedLine = 0;
-    };
-
-    _targetRadioId = _pairRadios select _selectedLine;
-};
-
-private _result = [
-    _targetRadioId
-] call acre_sys_prc152_fnc_handlePTTUp;
 
 {
     [
@@ -253,11 +209,18 @@ private _result = [
             0
         ]
     ] call acre_sys_data_fnc_dataEvent;
-} forEach _pairRadios;
+} forEach _stateRadios;
 
 missionNamespace setVariable [
     "UKSF_PRC163_pttRadio",
     nil
 ];
 
-_result
+missionNamespace setVariable [
+    "UKSF_PRC163_pttLine",
+    nil
+];
+
+_released || {
+    _releaseRadios isNotEqualTo []
+}
