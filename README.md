@@ -350,7 +350,7 @@ The licence applies only to material that UKSF Surplus owns or is authorised to 
 
 ## Credits
 
-Developed for Z Squadron UKSF milsim by Z Squadron UKSF milsim.
+Developed for Z Squadron UKSF milsim by Z Squadron UKSF milsim (UKSF Surplus).
 
 Built for use with:
 
