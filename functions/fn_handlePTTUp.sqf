@@ -221,6 +221,40 @@ missionNamespace setVariable [
     nil
 ];
 
+private _clearBlockedRadios = {
+    params [
+        ["_radios",[],[[]]]
+    ];
+
+    if (isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS") exitWith {};
+
+    private _activeRadioId = toLower (
+        missionNamespace getVariable [
+            "UKSF_PRC163_pttRadio",
+            ""
+        ]
+    );
+
+    private _clearRadios = _radios select {
+        _x isNotEqualTo _activeRadioId
+    };
+
+    ACRE_BLOCKED_TRANSMITTING_RADIOS =
+        ACRE_BLOCKED_TRANSMITTING_RADIOS - _clearRadios;
+};
+
+[
+    _stateRadios
+] call _clearBlockedRadios;
+
+[
+    _clearBlockedRadios,
+    [
+        +_stateRadios
+    ],
+    0.1
+] call CBA_fnc_waitAndExecute;
+
 _released || {
     _releaseRadios isNotEqualTo []
 }

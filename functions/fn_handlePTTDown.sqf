@@ -190,11 +190,84 @@ if (
     false
 };
 
+private _previousRadioId = toLower (
+    missionNamespace getVariable [
+        "UKSF_PRC163_pttRadio",
+        ""
+    ]
+);
+
+if (
+    _previousRadioId find _prefix isEqualTo 0 &&
+    {_previousRadioId isNotEqualTo _targetRadioId}
+) then {
+    [
+        _previousRadioId
+    ] call acre_sys_prc152_fnc_handlePTTUp;
+};
+
+{
+    [
+        _x,
+        "setState",
+        [
+            "prc163PTTDown",
+            0
+        ]
+    ] call acre_sys_data_fnc_dataEvent;
+
+    [
+        _x,
+        "setState",
+        [
+            "prc163TransmittingA",
+            0
+        ]
+    ] call acre_sys_data_fnc_dataEvent;
+
+    [
+        _x,
+        "setState",
+        [
+            "prc163TransmittingB",
+            0
+        ]
+    ] call acre_sys_data_fnc_dataEvent;
+} forEach _pairRadios;
+
+missionNamespace setVariable [
+    "UKSF_PRC163_pttRadio",
+    nil
+];
+
+missionNamespace setVariable [
+    "UKSF_PRC163_pttLine",
+    nil
+];
+
+if (
+    _targetRadioId isEqualTo _radioB &&
+    {!isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS"}
+) then {
+    ACRE_BLOCKED_TRANSMITTING_RADIOS =
+        ACRE_BLOCKED_TRANSMITTING_RADIOS - [
+            _targetRadioId
+        ];
+};
+
 [
     _targetRadioId,
     "setCurrentChannel",
     _selectedChannel
 ] call acre_sys_data_fnc_dataEvent;
+
+private _result = [
+    _targetRadioId
+] call acre_sys_prc152_fnc_handlePTTDown;
+
+if (!_result) exitWith {
+    false
+};
 
 {
     [
@@ -242,52 +315,5 @@ missionNamespace setVariable [
     "UKSF_PRC163_pttLine",
     _pttLine
 ];
-
-private _result = [
-    _targetRadioId
-] call acre_sys_prc152_fnc_handlePTTDown;
-
-if (!_result) exitWith {
-    missionNamespace setVariable [
-        "UKSF_PRC163_pttRadio",
-        nil
-    ];
-
-    missionNamespace setVariable [
-        "UKSF_PRC163_pttLine",
-        -1
-    ];
-
-    {
-        [
-            _x,
-            "setState",
-            [
-                "prc163PTTDown",
-                0
-            ]
-        ] call acre_sys_data_fnc_dataEvent;
-
-        [
-            _x,
-            "setState",
-            [
-                "prc163TransmittingA",
-                0
-            ]
-        ] call acre_sys_data_fnc_dataEvent;
-
-        [
-            _x,
-            "setState",
-            [
-                "prc163TransmittingB",
-                0
-            ]
-        ] call acre_sys_data_fnc_dataEvent;
-    } forEach _pairRadios;
-
-    false
-};
 
 true
