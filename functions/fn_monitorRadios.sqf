@@ -245,16 +245,58 @@ if (!hasInterface) exitWith {};
         _rackHost = player;
     };
 
-    private _rackAllowed = if (
-        _rackHost isEqualTo player
-    ) then {
-        [
-            "external"
-        ]
-    } else {
-        [
-            "inside"
-        ]
+    private _rackAllowed = [
+        "external"
+    ];
+
+    if !(_rackHost isEqualTo player) then {
+        _rackAllowed = [];
+
+        {
+            private _role = toLower (
+                _x select 1
+            );
+
+            if (_role isEqualTo "cargo") then {
+                _role = format [
+                    "%1_%2",
+                    _role,
+                    _x select 2
+                ];
+            } else {
+                if (_role isEqualTo "turret") then {
+                    _role = format [
+                        "%1_%2",
+                        _role,
+                        _x select 3
+                    ];
+                };
+            };
+
+            if !(_role isEqualTo "") then {
+                _rackAllowed pushBackUnique _role;
+
+                _rackAllowed pushBackUnique format [
+                    "turnedout_%1",
+                    _role
+                ];
+            };
+        } forEach (
+            fullCrew [
+                _rackHost,
+                "",
+                true
+            ]
+        );
+
+        if (_rackAllowed isEqualTo []) then {
+            _rackAllowed = [
+                "driver",
+                "commander",
+                "gunner",
+                "copilot"
+            ];
+        };
     };
 
     {
@@ -631,7 +673,28 @@ if (!hasInterface) exitWith {};
                 toLower _x
             };
 
-            if !(_companion in _radioList) then {
+            private _rackAccessible = [
+                _companion,
+                player
+            ] call acre_sys_rack_fnc_isRadioAccessible;
+
+            private _accessibleRackRadios = if (
+                isNil "ACRE_ACCESSIBLE_RACK_RADIOS"
+            ) then {
+                []
+            } else {
+                ACRE_ACCESSIBLE_RACK_RADIOS apply {
+                    toLower _x
+                }
+            };
+
+            if (
+                _rackAccessible &&
+                {
+                    !(_companion in _radioList) ||
+                    {!(_companion in _accessibleRackRadios)}
+                }
+            ) then {
                 private _oldActive = [] call acre_api_fnc_getCurrentRadio;
 
                 if (
