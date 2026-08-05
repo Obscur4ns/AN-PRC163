@@ -245,59 +245,16 @@ if (!hasInterface) exitWith {};
         _rackHost = player;
     };
 
-    private _rackAllowed = [
-        "external"
-    ];
-
-    if !(_rackHost isEqualTo player) then {
-        private _rackRole = "";
-
-        {
-            if (player isEqualTo (_x select 0)) exitWith {
-                _rackRole = toLower (
-                    _x select 1
-                );
-
-                if (_rackRole isEqualTo "cargo") then {
-                    _rackRole = format [
-                        "%1_%2",
-                        _rackRole,
-                        _x select 2
-                    ];
-                } else {
-                    if (_rackRole isEqualTo "turret") then {
-                        _rackRole = format [
-                            "%1_%2",
-                            _rackRole,
-                            _x select 3
-                        ];
-                    };
-                };
-
-                if (isTurnedOut player) then {
-                    _rackRole = format [
-                        "turnedout_%1",
-                        _rackRole
-                    ];
-                };
-            };
-        } forEach (
-            fullCrew [
-                _rackHost,
-                "",
-                true
-            ]
-        );
-
-        _rackAllowed = if (_rackRole isEqualTo "") then {
-            [
-                "inside"
-            ]
-        } else {
-            [
-                _rackRole
-            ]
-        };
+    private _rackAllowed = if (
+        _rackHost isEqualTo player
+    ) then {
+        [
+            "external"
+        ]
+    } else {
+        [
+            "inside"
+        ]
     };
 
     {

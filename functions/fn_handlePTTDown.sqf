@@ -261,14 +261,6 @@ if (
     _selectedChannel
 ] call acre_sys_data_fnc_dataEvent;
 
-private _result = [
-    _targetRadioId
-] call acre_sys_prc152_fnc_handlePTTDown;
-
-if (!_result) exitWith {
-    false
-};
-
 {
     [
         _x,
@@ -315,5 +307,52 @@ missionNamespace setVariable [
     "UKSF_PRC163_pttLine",
     _pttLine
 ];
+
+private _result = [
+    _targetRadioId
+] call acre_sys_prc152_fnc_handlePTTDown;
+
+if (!_result) exitWith {
+    missionNamespace setVariable [
+        "UKSF_PRC163_pttRadio",
+        nil
+    ];
+
+    missionNamespace setVariable [
+        "UKSF_PRC163_pttLine",
+        -1
+    ];
+
+    {
+        [
+            _x,
+            "setState",
+            [
+                "prc163PTTDown",
+                0
+            ]
+        ] call acre_sys_data_fnc_dataEvent;
+
+        [
+            _x,
+            "setState",
+            [
+                "prc163TransmittingA",
+                0
+            ]
+        ] call acre_sys_data_fnc_dataEvent;
+
+        [
+            _x,
+            "setState",
+            [
+                "prc163TransmittingB",
+                0
+            ]
+        ] call acre_sys_data_fnc_dataEvent;
+    } forEach _pairRadios;
+
+    false
+};
 
 true
