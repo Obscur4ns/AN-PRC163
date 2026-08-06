@@ -135,6 +135,16 @@ if (
     false
 };
 
+if !(
+    [
+        _radioA,
+        _radioB,
+        player
+    ] call UKSF_PRC163_fnc_isPairHealthy
+) exitWith {
+    false
+};
+
 private _enabled = [
     _radioA,
     "getState",

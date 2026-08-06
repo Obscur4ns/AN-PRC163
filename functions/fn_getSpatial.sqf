@@ -167,7 +167,14 @@ if (_pilotEnabled) then {
 if (
     _radioA isEqualTo "" ||
     {_radioB isEqualTo ""} ||
-    {!(_line in [0,1])}
+    {!(_line in [0,1])} ||
+    {!(
+        [
+            _radioA,
+            _radioB,
+            player
+        ] call UKSF_PRC163_fnc_isPairHealthy
+    )}
 ) exitWith {
     _this call acre_sys_prc152_fnc_getSpatial
 };

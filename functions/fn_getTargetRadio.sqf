@@ -1,21 +1,14 @@
+if (isNull player) exitWith {
+    ""
+};
+
 private _prefix = "acre_prc163_id_";
-
-private _gearRadios = (
-    [player] call acre_sys_core_fnc_getGear
-) apply {
-    toLower _x
-};
-
-private _visibleRadios = _gearRadios select {
-    _x find _prefix isEqualTo 0
-};
+private _pairs = [];
 
 private _pilotEnabled = missionNamespace getVariable [
     "UKSF_PRC163_SingleInstancePilot",
     false
 ];
-
-private _pairs = [];
 
 if (_pilotEnabled) then {
     private _endpointMap = missionNamespace getVariable [
@@ -39,9 +32,11 @@ if (_pilotEnabled) then {
         );
 
         if (
-            _radioA in _visibleRadios &&
-            {!(_radioA isEqualTo _radioB)} &&
-            {_radioB find _prefix isEqualTo 0}
+            [
+                _radioA,
+                _radioB,
+                player
+            ] call UKSF_PRC163_fnc_isPairHealthy
         ) then {
             private _number = parseNumber (
                 _radioA select [
@@ -55,19 +50,23 @@ if (_pilotEnabled) then {
                 _radioB
             ];
         };
-    } forEach (
-        keys _endpointMap
-    );
+    } forEach (keys _endpointMap);
 } else {
-    private _radioEntries = _visibleRadios apply {
-        private _number = parseNumber (
-            _x select [
-                count _prefix
-            ]
-        );
+    private _gear = (
+        [player] call acre_sys_core_fnc_getGear
+    ) apply {
+        toLower _x
+    };
 
+    private _radioEntries = (_gear select {
+        _x find _prefix isEqualTo 0
+    }) apply {
         [
-            _number,
+            parseNumber (
+                _x select [
+                    count _prefix
+                ]
+            ),
             _x
         ]
     };
@@ -81,19 +80,27 @@ if (_pilotEnabled) then {
             {(_number mod 2) isEqualTo 1}
         ) then {
             private _radioBIndex = _radioEntries findIf {
-                (_x select 0) isEqualTo (
-                    _number + 1
-                )
+                (_x select 0) isEqualTo (_number + 1)
             };
 
             if (_radioBIndex >= 0) then {
-                _pairs pushBack [
-                    _number,
-                    _radioA,
-                    (
-                        _radioEntries select _radioBIndex
-                    ) select 1
-                ];
+                private _radioB = (
+                    _radioEntries select _radioBIndex
+                ) select 1;
+
+                if (
+                    [
+                        _radioA,
+                        _radioB,
+                        player
+                    ] call UKSF_PRC163_fnc_isPairHealthy
+                ) then {
+                    _pairs pushBack [
+                        _number,
+                        _radioA,
+                        _radioB
+                    ];
+                };
             };
         };
     } forEach _radioEntries;
@@ -115,17 +122,14 @@ private _resolveCandidate = {
         ["_candidate","",[""]]
     ];
 
-    private _candidateId = toLower _candidate;
+    _candidate = toLower _candidate;
 
-    if (
-        _candidateId isEqualTo "" ||
-        {_candidateId find _prefix != 0}
-    ) exitWith {
+    if (_candidate find _prefix != 0) exitWith {
         ""
     };
 
     private _pairIndex = _pairs findIf {
-        _candidateId in [
+        _candidate in [
             _x select 1,
             _x select 2
         ]
@@ -155,17 +159,35 @@ private _resolveCandidate = {
     ] select _selectedLine
 };
 
-private _guiRadio = uiNamespace getVariable [
+private _guiRadioValue = uiNamespace getVariable [
     "UKSF_PRC163_guiRadio",
     ""
 ];
 
-private _activeRadio = missionNamespace getVariable [
+private _activeRadioValue = missionNamespace getVariable [
     "UKSF_PRC163_activeRadio",
     ""
 ];
 
-private _currentRadio = [] call acre_api_fnc_getCurrentRadio;
+private _currentRadioValue = [] call acre_api_fnc_getCurrentRadio;
+
+private _guiRadio = if (_guiRadioValue isEqualType "") then {
+    _guiRadioValue
+} else {
+    ""
+};
+
+private _activeRadio = if (_activeRadioValue isEqualType "") then {
+    _activeRadioValue
+} else {
+    ""
+};
+
+private _currentRadio = if (_currentRadioValue isEqualType "") then {
+    _currentRadioValue
+} else {
+    ""
+};
 
 private _guiTarget = [
     _guiRadio
@@ -181,45 +203,39 @@ private _currentTarget = [
 
 private _targetRadio = "";
 
-if (_guiTarget != "") then {
-    _targetRadio = if (
-        _activeTarget != ""
-    ) then {
+if !(_guiTarget isEqualTo "") then {
+    _targetRadio = if !(_activeTarget isEqualTo "") then {
         _activeTarget
     } else {
         _guiTarget
     };
 } else {
-    if (_currentTarget != "") then {
+    if !(_currentTarget isEqualTo "") then {
         _targetRadio = _currentTarget;
     } else {
-        if (_activeTarget != "") then {
+        if !(_activeTarget isEqualTo "") then {
             _targetRadio = _activeTarget;
         } else {
             private _firstPair = _pairs select 0;
-            private _firstRadioA = _firstPair select 1;
-            private _firstRadioB = _firstPair select 2;
+            private _radioA = _firstPair select 1;
+            private _radioB = _firstPair select 2;
 
-            private _firstSelectedLine = [
-                _firstRadioA,
+            private _selectedLine = [
+                _radioA,
                 "getState",
                 "prc163SelectedLine"
             ] call acre_sys_data_fnc_dataEvent;
 
-            if !(_firstSelectedLine in [0,1]) then {
-                _firstSelectedLine = 0;
+            if !(_selectedLine in [0,1]) then {
+                _selectedLine = 0;
             };
 
             _targetRadio = [
-                _firstRadioA,
-                _firstRadioB
-            ] select _firstSelectedLine;
+                _radioA,
+                _radioB
+            ] select _selectedLine;
         };
     };
-};
-
-if (_targetRadio isEqualTo "") exitWith {
-    ""
 };
 
 missionNamespace setVariable [
@@ -227,7 +243,7 @@ missionNamespace setVariable [
     _targetRadio
 ];
 
-if (_guiTarget != "") then {
+if !(_guiTarget isEqualTo "") then {
     uiNamespace setVariable [
         "UKSF_PRC163_guiRadio",
         _targetRadio

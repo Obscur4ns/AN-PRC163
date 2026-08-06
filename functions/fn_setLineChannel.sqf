@@ -155,6 +155,16 @@ if (
     false
 };
 
+if !(
+    [
+        _radioA,
+        _radioB,
+        player
+    ] call UKSF_PRC163_fnc_isPairHealthy
+) exitWith {
+    false
+};
+
 private _pairRadios = [
     _radioA,
     _radioB

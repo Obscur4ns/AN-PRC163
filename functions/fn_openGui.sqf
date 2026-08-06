@@ -2,154 +2,18 @@ params [
     ["_radioId","",[""]]
 ];
 
-private _prefix = "acre_prc163_id_";
-private _sourceRadioId = toLower _radioId;
+_radioId = toLower _radioId;
 
-if (
-    _sourceRadioId isEqualTo "" ||
-    {_sourceRadioId find _prefix != 0}
-) exitWith {
-    false
-};
+private _pair = [
+    _radioId,
+    player,
+    true
+] call UKSF_PRC163_fnc_resolvePair;
 
-private _pilotEnabled = missionNamespace getVariable [
-    "UKSF_PRC163_SingleInstancePilot",
-    false
+_pair params [
+    ["_radioA","",[""]],
+    ["_radioB","",[""]]
 ];
-
-private _radioA = "";
-private _radioB = "";
-
-if (_pilotEnabled) then {
-    private _endpointMap = missionNamespace getVariable [
-        "UKSF_PRC163_endpointMap",
-        createHashMap
-    ];
-
-    private _mapKeys = keys _endpointMap;
-    private _entry = _endpointMap getOrDefault [
-        _sourceRadioId,
-        []
-    ];
-
-    if !(_entry isEqualTo []) then {
-        _radioA = _sourceRadioId;
-    } else {
-        private _statePrimary = [
-            _sourceRadioId,
-            "getState",
-            "prc163PrimaryRadio"
-        ] call acre_sys_data_fnc_dataEvent;
-
-        if (
-            !isNil "_statePrimary" &&
-            {_statePrimary isEqualType ""}
-        ) then {
-            _statePrimary = toLower _statePrimary;
-
-            if (_statePrimary in _mapKeys) then {
-                _radioA = _statePrimary;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-            };
-        };
-
-        if (_radioA isEqualTo "") then {
-            private _primaryIndex = _mapKeys findIf {
-                private _candidateEntry = _endpointMap getOrDefault [
-                    _x,
-                    []
-                ];
-
-                toLower (
-                    _candidateEntry param [
-                        0,
-                        "",
-                        [""]
-                    ]
-                ) isEqualTo _sourceRadioId
-            };
-
-            if (_primaryIndex >= 0) then {
-                _radioA = _mapKeys select _primaryIndex;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-            };
-        };
-    };
-
-    _radioA = toLower _radioA;
-    _radioB = toLower (
-        _entry param [
-            0,
-            "",
-            [""]
-        ]
-    );
-
-    private _gear = (
-        [player] call acre_sys_core_fnc_getGear
-    ) apply {
-        toLower _x
-    };
-
-    if (
-        !(_radioA in _gear) ||
-        {_radioA isEqualTo _radioB} ||
-        {_radioB find _prefix != 0}
-    ) then {
-        _radioA = "";
-        _radioB = "";
-    };
-} else {
-    private _gear = (
-        [player] call acre_sys_core_fnc_getGear
-    ) apply {
-        toLower _x
-    };
-
-    if (_sourceRadioId in _gear) then {
-        private _sourceNumber = parseNumber (
-            _sourceRadioId select [
-                count _prefix
-            ]
-        );
-
-        if (_sourceNumber >= 1) then {
-            private _radioANumber = if (
-                (_sourceNumber mod 2) isEqualTo 1
-            ) then {
-                _sourceNumber
-            } else {
-                _sourceNumber - 1
-            };
-
-            private _candidateA = format [
-                "%1%2",
-                _prefix,
-                _radioANumber
-            ];
-
-            private _candidateB = format [
-                "%1%2",
-                _prefix,
-                _radioANumber + 1
-            ];
-
-            if (
-                _candidateA in _gear &&
-                {_candidateB in _gear}
-            ) then {
-                _radioA = _candidateA;
-                _radioB = _candidateB;
-            };
-        };
-    };
-};
 
 if (
     _radioA isEqualTo "" ||
@@ -164,8 +28,10 @@ private _selectedLine = [
     "prc163SelectedLine"
 ] call acre_sys_data_fnc_dataEvent;
 
+private _stateReady = true;
+
 if !(_selectedLine in [0,1]) then {
-    [
+    _stateReady = [
         _radioA
     ] call UKSF_PRC163_fnc_initializeState;
 
@@ -174,6 +40,10 @@ if !(_selectedLine in [0,1]) then {
         "getState",
         "prc163SelectedLine"
     ] call acre_sys_data_fnc_dataEvent;
+};
+
+if (!_stateReady) exitWith {
+    false
 };
 
 if !(_selectedLine in [0,1]) then {
@@ -185,10 +55,32 @@ private _targetRadioId = [
     _radioB
 ] select _selectedLine;
 
-if !(
-    [
-        _targetRadioId
-    ] call acre_sys_radio_fnc_canOpenRadio
+private _display = uiNamespace getVariable [
+    "UKSF_PRC163_display",
+    displayNull
+];
+
+private _storedGuiValue = uiNamespace getVariable [
+    "UKSF_PRC163_guiRadio",
+    ""
+];
+
+private _storedGuiRadio = if (
+    _storedGuiValue isEqualType ""
+) then {
+    toLower _storedGuiValue
+} else {
+    ""
+};
+
+if (!(isNull _display) && {!(_storedGuiRadio in [_radioA,_radioB])}) then {
+    closeDialog 0;
+    _display = displayNull;
+};
+
+if (
+    isNull _display &&
+    {!([_targetRadioId] call acre_sys_radio_fnc_canOpenRadio)}
 ) exitWith {
     false
 };
@@ -223,11 +115,6 @@ missionNamespace setVariable [
 uiNamespace setVariable [
     "UKSF_PRC163_guiRadio",
     _targetRadioId
-];
-
-private _display = uiNamespace getVariable [
-    "UKSF_PRC163_display",
-    displayNull
 ];
 
 if !(isNull _display) exitWith {

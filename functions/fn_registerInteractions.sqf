@@ -53,8 +53,13 @@ private _insertRadioChildren = {
 
                 if (
                     _slot > 0 &&
-                    {_radioB find _prefix isEqualTo 0} &&
-                    {_radioB isNotEqualTo _radioA}
+                    {
+                        [
+                            _radioA,
+                            _radioB,
+                            _player
+                        ] call UKSF_PRC163_fnc_isPairHealthy
+                    }
                 ) then {
                     _pairEntries pushBackUnique [
                         _slot,
@@ -85,7 +90,13 @@ private _insertRadioChildren = {
                         _number + 1
                     ];
 
-                    if (_radioB in _radios) then {
+                    if (
+                        [
+                            _radioA,
+                            _radioB,
+                            _player
+                        ] call UKSF_PRC163_fnc_isPairHealthy
+                    ) then {
                         _pairEntries pushBackUnique [
                             floor (
                                 (_number + 1) / 2
@@ -265,42 +276,11 @@ private _insertRadioChildren = {
                 "_radioB"
             ];
 
-            private _carriedRadios = (
-                [_player] call acre_sys_core_fnc_getGear
-            ) apply {
-                toLower _x
-            };
-
-            if !(_radioA in _carriedRadios) exitWith {
-                false
-            };
-
-            if !(
-                missionNamespace getVariable [
-                    "UKSF_PRC163_SingleInstancePilot",
-                    false
-                ]
-            ) exitWith {
-                _radioB in _carriedRadios
-            };
-
-            private _endpointMap = missionNamespace getVariable [
-                "UKSF_PRC163_endpointMap",
-                createHashMap
-            ];
-
-            private _entry = _endpointMap getOrDefault [
+            [
                 _radioA,
-                []
-            ];
-
-            toLower (
-                _entry param [
-                    0,
-                    "",
-                    [""]
-                ]
-            ) isEqualTo _radioB
+                _radioB,
+                _player
+            ] call UKSF_PRC163_fnc_isPairHealthy
         };
 
         private _poweredPairCondition = {
@@ -315,47 +295,14 @@ private _insertRadioChildren = {
                 "_radioB"
             ];
 
-            private _carriedRadios = (
-                [_player] call acre_sys_core_fnc_getGear
-            ) apply {
-                toLower _x
-            };
-
-            if !(_radioA in _carriedRadios) exitWith {
-                false
-            };
-
-            if (
-                missionNamespace getVariable [
-                    "UKSF_PRC163_SingleInstancePilot",
-                    false
-                ]
-            ) then {
-                private _endpointMap = missionNamespace getVariable [
-                    "UKSF_PRC163_endpointMap",
-                    createHashMap
-                ];
-
-                private _entry = _endpointMap getOrDefault [
+            if !(
+                [
                     _radioA,
-                    []
-                ];
-
-                if (
-                    toLower (
-                        _entry param [
-                            0,
-                            "",
-                            [""]
-                        ]
-                    ) isNotEqualTo _radioB
-                ) exitWith {
-                    false
-                };
-            } else {
-                if !(_radioB in _carriedRadios) exitWith {
-                    false
-                };
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {
+                false
             };
 
             private _powerA = [
@@ -397,42 +344,11 @@ private _insertRadioChildren = {
                 false
             };
 
-            private _carriedRadios = (
-                [_player] call acre_sys_core_fnc_getGear
-            ) apply {
-                toLower _x
-            };
-
-            if !(_radioA in _carriedRadios) exitWith {
-                false
-            };
-
-            if !(
-                missionNamespace getVariable [
-                    "UKSF_PRC163_SingleInstancePilot",
-                    false
-                ]
-            ) exitWith {
-                _radioB in _carriedRadios
-            };
-
-            private _endpointMap = missionNamespace getVariable [
-                "UKSF_PRC163_endpointMap",
-                createHashMap
-            ];
-
-            private _entry = _endpointMap getOrDefault [
+            [
                 _radioA,
-                []
-            ];
-
-            toLower (
-                _entry param [
-                    0,
-                    "",
-                    [""]
-                ]
-            ) isEqualTo _radioB
+                _radioB,
+                _player
+            ] call UKSF_PRC163_fnc_isPairHealthy
         };
 
         private _openStatement = {
@@ -446,6 +362,14 @@ private _insertRadioChildren = {
                 "_radioA",
                 "_radioB"
             ];
+
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -511,6 +435,14 @@ private _insertRadioChildren = {
                 "_radioB",
                 "_line"
             ];
+
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -580,6 +512,14 @@ private _insertRadioChildren = {
                 "_line",
                 "_spatial"
             ];
+
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -660,6 +600,14 @@ private _insertRadioChildren = {
                 "_radioB"
             ];
 
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
+
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
             ) apply {
@@ -721,6 +669,14 @@ private _insertRadioChildren = {
                 "_radioB",
                 "_slot"
             ];
+
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -828,6 +784,14 @@ private _insertRadioChildren = {
                 "_radioA",
                 "_radioB"
             ];
+
+            if !(
+                [
+                    _radioA,
+                    _radioB,
+                    _player
+                ] call UKSF_PRC163_fnc_isPairHealthy
+            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -946,6 +910,16 @@ private _insertRadioChildren = {
                         "_player"
                     ];
 
+                    if !(
+                        [
+                            _radioA,
+                            _radioB,
+                            _player
+                        ] call UKSF_PRC163_fnc_isPairHealthy
+                    ) exitWith {
+                        false
+                    };
+
                     private _carriedRadios = (
                         [_player] call acre_sys_core_fnc_getGear
                     ) apply {
@@ -999,6 +973,16 @@ private _insertRadioChildren = {
                         "_radioB",
                         "_player"
                     ];
+
+                    if !(
+                        [
+                            _radioA,
+                            _radioB,
+                            _player
+                        ] call UKSF_PRC163_fnc_isPairHealthy
+                    ) exitWith {
+                        false
+                    };
 
                     private _carriedRadios = (
                         [_player] call acre_sys_core_fnc_getGear
@@ -1075,42 +1059,11 @@ private _insertRadioChildren = {
                 false
             };
 
-            private _carriedRadios = (
-                [_player] call acre_sys_core_fnc_getGear
-            ) apply {
-                toLower _x
-            };
-
-            if !(_radioA in _carriedRadios) exitWith {
-                false
-            };
-
-            if !(
-                missionNamespace getVariable [
-                    "UKSF_PRC163_SingleInstancePilot",
-                    false
-                ]
-            ) exitWith {
-                _radioB in _carriedRadios
-            };
-
-            private _endpointMap = missionNamespace getVariable [
-                "UKSF_PRC163_endpointMap",
-                createHashMap
-            ];
-
-            private _entry = _endpointMap getOrDefault [
+            [
                 _radioA,
-                []
-            ];
-
-            toLower (
-                _entry param [
-                    0,
-                    "",
-                    [""]
-                ]
-            ) isEqualTo _radioB
+                _radioB,
+                _player
+            ] call UKSF_PRC163_fnc_isPairHealthy
         };
 
         private _openAction = [
@@ -1604,96 +1557,5 @@ missionNamespace setVariable [
     "UKSF_PRC163_interactionChildren",
     _insertRadioChildren
 ];
-
-private _insertACREChildren = {
-    params [
-        "_target",
-        "_player"
-    ];
-
-    private _prefix = "acre_prc163_id_";
-
-    private _children = [
-        _target
-    ] call acre_ace_interact_fnc_radioListChildrenActions;
-
-    _children = _children select {
-        private _entry = _x;
-
-        private _action = _entry param [
-            0,
-            []
-        ];
-
-        private _actionName = toLower (
-            _action param [
-                0,
-                ""
-            ]
-        );
-
-        !(
-            _actionName find _prefix isEqualTo 0
-        )
-    };
-
-    private _insertPRC163 = missionNamespace getVariable [
-        "UKSF_PRC163_interactionChildren",
-        {}
-    ];
-
-    private _prc163Children = [
-        _target,
-        _player
-    ] call _insertPRC163;
-
-    _children append _prc163Children;
-    _children
-};
-
-[
-    "CAManBase"
-] call ace_interact_menu_fnc_compileMenuSelfAction;
-
-[
-    "CAManBase",
-    1,
-    [
-        "ACE_SelfActions",
-        "UKSF_PRC163_Root"
-    ],
-    true
-] call ace_interact_menu_fnc_removeActionFromClass;
-
-[
-    "CAManBase",
-    1,
-    [
-        "ACE_SelfActions",
-        "ACRE_Interact"
-    ],
-    true
-] call ace_interact_menu_fnc_removeActionFromClass;
-
-private _action = [
-    "ACRE_Interact",
-    localize "STR_ACRE_ace_interact_radios",
-    "\a3\Ui_f\data\GUI\Cfg\CommunicationMenu\call_ca.paa",
-    {},
-    {
-        true
-    },
-    _insertACREChildren
-] call ace_interact_menu_fnc_createAction;
-
-[
-    "CAManBase",
-    1,
-    [
-        "ACE_SelfActions"
-    ],
-    _action,
-    true
-] call ace_interact_menu_fnc_addActionToClass;
 
 true

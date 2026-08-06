@@ -74,10 +74,19 @@ if (_pilotEnabled) then {
         toLower _x
     };
 
+    private _availableRadios = (
+        [] call acre_api_fnc_getCurrentRadioList
+    ) apply {
+        toLower _x
+    };
+
     if (
         !(_radioA in _gearRadios) ||
+        {!(_radioA in _availableRadios)} ||
         {_radioA isEqualTo _radioB} ||
-        {_radioB find _prefix != 0}
+        {_radioB find _prefix != 0} ||
+        {!(_radioB in _availableRadios)} ||
+        {!([_radioB] call acre_sys_radio_fnc_radioExists)}
     ) then {
         _radioA = "";
         _radioB = "";
@@ -148,6 +157,16 @@ if (_pilotEnabled) then {
 if (
     _radioA isEqualTo "" ||
     {_radioB isEqualTo ""}
+) exitWith {
+    false
+};
+
+if !(
+    [
+        _radioA,
+        _radioB,
+        player
+    ] call UKSF_PRC163_fnc_isPairHealthy
 ) exitWith {
     false
 };

@@ -175,7 +175,14 @@ if (_pilotEnabled) then {
 if (
     _radioA isNotEqualTo "" &&
     {_radioB isNotEqualTo ""} &&
-    {_line in [0,1]}
+    {_line in [0,1]} &&
+    {
+        [
+            _radioA,
+            _radioB,
+            player
+        ] call UKSF_PRC163_fnc_isPairHealthy
+    }
 ) then {
     private _receiving = if (
         _result isEqualType [] &&

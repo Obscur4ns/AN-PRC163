@@ -140,6 +140,16 @@ if (
     createHashMap
 };
 
+if !(
+    [
+        _radioA,
+        _radioB,
+        player
+    ] call UKSF_PRC163_fnc_isPairHealthy
+) exitWith {
+    createHashMap
+};
+
 private _readAnchorState = {
     params [
         "_name",

@@ -10,6 +10,9 @@ class CfgFunctions {
             class initializeState {};
             class initializeBatteryState {};
             class monitorRadios {postInit = 1;};
+            class getInteractionChildren {};
+            class isPairHealthy {};
+            class resolvePair {};
             class getTargetRadio {};
             class getBatterySlot {};
             class getBatteryRecord {};

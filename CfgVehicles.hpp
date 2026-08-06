@@ -1,7 +1,17 @@
 class CfgVehicles
 {
+    class Man;
+    class CAManBase: Man
+    {
+        class ACE_SelfActions
+        {
+            class ACRE_Interact
+            {
+                insertChildren = "_this call UKSF_PRC163_fnc_getInteractionChildren";
+            };
+        };
+    };
     class Item_Base_F;
-
     class UKSF_PRC163_World: Item_Base_F
     {
         author = "UKSF Surplus";
@@ -12,7 +22,6 @@ class CfgVehicles
         editorCategory = "EdCat_Things";
         editorSubcategory = "EdSubcat_InventoryItems";
         vehicleClass = "Items";
-
         class TransportItems
         {
             class _xx_ACRE_PRC163
@@ -32,7 +41,6 @@ class CfgVehicles
         editorCategory = "EdCat_Things";
         editorSubcategory = "EdSubcat_InventoryItems";
         vehicleClass = "Items";
-
         class TransportItems
         {
             class _xx_UKSF_PRC163_Battery

@@ -186,9 +186,19 @@ if (_pilotEnabled) then {
 if (
     _radioA isEqualTo "" ||
     {_radioB isEqualTo ""} ||
-    {!(_receivingLine in [0,1])}
+    {!(_receivingLine in [0,1])} ||
+    {!(
+        [
+            _radioA,
+            _radioB,
+            player
+        ] call UKSF_PRC163_fnc_isPairHealthy
+    )}
 ) exitWith {
-    false
+    [
+        _transmittingRadio,
+        _receivingRadio
+    ] call _nativeFunction
 };
 
 private _dualWatch = [
