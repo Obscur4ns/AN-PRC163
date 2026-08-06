@@ -9,7 +9,6 @@ if (!hasInterface) exitWith {};
     ];
 
     private _prefix = "acre_prc163_id_";
-
     private _map = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
@@ -25,139 +24,11 @@ if (!hasInterface) exitWith {};
         createHashMap
     ];
 
-    if (isNil "ACRE_EXTERNALLY_USED_MANPACK_RADIOS") then {
-        ACRE_EXTERNALLY_USED_MANPACK_RADIOS = [];
-    };
-
-    private _removeFromAcreLists = {
-        params [
-            ["_radioId","",[""]],
-            ["_removeManpack",true,[true]],
-            ["_removeBlocked",true,[true]]
-        ];
-
-        _radioId = toLower _radioId;
-
-        if (_radioId isEqualTo "") exitWith {};
-
-        if (
-            _removeManpack &&
-            {!(isNil "ACRE_EXTERNALLY_USED_MANPACK_RADIOS")}
-        ) then {
-            ACRE_EXTERNALLY_USED_MANPACK_RADIOS =
-                ACRE_EXTERNALLY_USED_MANPACK_RADIOS - [_radioId];
-        };
-
-        if !(isNil "ACRE_ACCESSIBLE_RACK_RADIOS") then {
-            ACRE_ACCESSIBLE_RACK_RADIOS =
-                ACRE_ACCESSIBLE_RACK_RADIOS - [_radioId];
-        };
-
-        if !(isNil "ACRE_HEARABLE_RACK_RADIOS") then {
-            ACRE_HEARABLE_RACK_RADIOS =
-                ACRE_HEARABLE_RACK_RADIOS - [_radioId];
-        };
-
-        if !(isNil "ACRE_ACTIVE_EXTERNAL_RADIOS") then {
-            ACRE_ACTIVE_EXTERNAL_RADIOS =
-                ACRE_ACTIVE_EXTERNAL_RADIOS - [_radioId];
-        };
-
-        if !(isNil "ACRE_EXTERNALLY_USED_PERSONAL_RADIOS") then {
-            ACRE_EXTERNALLY_USED_PERSONAL_RADIOS =
-                ACRE_EXTERNALLY_USED_PERSONAL_RADIOS - [_radioId];
-        };
-
-        if (
-            _removeBlocked &&
-            {!(isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS")}
-        ) then {
-            ACRE_BLOCKED_TRANSMITTING_RADIOS =
-                ACRE_BLOCKED_TRANSMITTING_RADIOS - [_radioId];
-        };
-    };
-
-    private _deleteRack = {
-        params [
-            ["_rackOwner",objNull,[objNull]],
-            ["_rackId","",[""]],
-            ["_rackName","",[""]]
-        ];
-
-        private _owners = [];
-
-        if !(isNull _rackOwner) then {
-            _owners pushBackUnique _rackOwner;
-        };
-
-        if !(isNull player) then {
-            _owners pushBackUnique player;
-        };
-
-        {
-            private _owner = _x;
-
-            private _queue = _owner getVariable [
-                "acre_sys_rack_queue",
-                []
-            ];
-
-            if !(_rackName isEqualTo "") then {
-                _queue = _queue select {
-                    (_x param [1,"",[""]]) isNotEqualTo _rackName
-                };
-
-                _owner setVariable [
-                    "acre_sys_rack_queue",
-                    _queue
-                ];
-            };
-
-            if !(_rackId isEqualTo "") then {
-                private _racks = _owner getVariable [
-                    "acre_sys_rack_vehicleRacks",
-                    []
-                ];
-
-                _racks = _racks select {
-                    toLower _x isNotEqualTo _rackId
-                };
-
-                _owner setVariable [
-                    "acre_sys_rack_vehicleRacks",
-                    _racks,
-                    true
-                ];
-            };
-        } forEach _owners;
-
-        if !(_rackId isEqualTo "") then {
-            [
-                _rackId,
-                "setState",
-                [
-                    "mountedRadio",
-                    ""
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
-
-            {
-                if (toLower (typeOf _x) isEqualTo _rackId) then {
-                    deleteVehicle _x;
-                };
-            } forEach (
-                allMissionObjects "ACRE_baseRack"
-            );
-        };
-    };
-
     private _cleanupEndpoint = {
         params [
-            ["_primary","",[""]],
-            ["_entry",[],[[]]]
+            "_primary",
+            "_entry"
         ];
-
-        _primary = toLower _primary;
 
         private _companion = toLower (
             _entry param [
@@ -175,15 +46,6 @@ if (!hasInterface) exitWith {};
             ]
         );
 
-        private _rackName = if (_primary isEqualTo "") then {
-            ""
-        } else {
-            format [
-                "UKSF PRC163 RT2 %1",
-                toUpper _primary
-            ]
-        };
-
         private _rackOwner = if !(_rackId isEqualTo "") then {
             [
                 _rackId
@@ -192,196 +54,156 @@ if (!hasInterface) exitWith {};
             objNull
         };
 
-        private _remembered = toLower (
-            missionNamespace getVariable [
-                "UKSF_PRC163_pttRadio",
-                ""
-            ]
-        );
-
-        private _broadcasting = toLower (
-            missionNamespace getVariable [
-                "ACRE_BROADCASTING_RADIOID",
-                ""
-            ]
-        );
-
         if (
-            _remembered in [_primary,_companion] ||
-            {_broadcasting in [_primary,_companion]}
+            !(_primary isEqualTo "") &&
+            {!(_companion isEqualTo "")}
         ) then {
-            private _releaseRadio = [
-                _companion,
-                _primary
-            ] select (
-                _remembered isEqualTo _primary ||
-                {_broadcasting isEqualTo _primary}
+            private _broadcast = toLower (
+                missionNamespace getVariable [
+                    "ACRE_BROADCASTING_RADIOID",
+                    ""
+                ]
             );
 
-            if !(_releaseRadio isEqualTo "") then {
+            private _remembered = toLower (
+                missionNamespace getVariable [
+                    "UKSF_PRC163_pttRadio",
+                    ""
+                ]
+            );
+
+            if (
+                _broadcast in [_primary,_companion] ||
+                {_remembered in [_primary,_companion]}
+            ) then {
                 [
-                    _releaseRadio
-                ] call UKSF_PRC163_fnc_handlePTTUp;
+                    _primary,
+                    player,
+                    false,
+                    _companion
+                ] call UKSF_PRC163_fnc_normalizePairState;
             };
         };
 
-        private _currentRadioValue = [] call acre_api_fnc_getCurrentRadio;
-
-        private _currentRadio = if (
-            _currentRadioValue isEqualType ""
-        ) then {
-            toLower _currentRadioValue
-        } else {
-            ""
+        if (isNull _rackOwner) then {
+            _rackOwner = player;
         };
 
-        private _gear = (
-            [player] call acre_sys_core_fnc_getGear
-        ) apply {
-            toLower _x
-        };
+        private _currentRadio = toLower (
+            [] call acre_api_fnc_getCurrentRadio
+        );
 
         if (
             _currentRadio isEqualTo _companion &&
-            {_primary in _gear}
+            {!(_primary isEqualTo "")}
         ) then {
             [
                 _primary
             ] call acre_api_fnc_setCurrentRadio;
         };
 
-        private _guiRadioValue = uiNamespace getVariable [
-            "UKSF_PRC163_guiRadio",
-            ""
-        ];
+        if !(_companion isEqualTo "") then {
+            [
+                _rackOwner,
+                player,
+                _companion
+            ] call acre_sys_rack_fnc_stopUsingMountedRadio;
 
-        private _guiRadio = if (
-            _guiRadioValue isEqualType ""
-        ) then {
-            toLower _guiRadioValue
-        } else {
-            ""
+            [
+                _companion,
+                "setState",
+                [
+                    "prc163PrimaryRadio",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
+
+            [
+                _companion,
+                "setState",
+                [
+                    "prc163CompanionRadio",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
+
+            [
+                _companion,
+                "setState",
+                [
+                    "prc163CompanionRack",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
         };
 
-        if (_guiRadio in [_primary,_companion]) then {
-            if !(isNull (findDisplay 16300)) then {
-                closeDialog 0;
+        if !(_rackId isEqualTo "") then {
+            [
+                _rackId,
+                "setState",
+                [
+                    "mountedRadio",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
+
+            private _vehicleRacks = _rackOwner getVariable [
+                "acre_sys_rack_vehicleRacks",
+                []
+            ];
+
+            _vehicleRacks = _vehicleRacks select {
+                toLower _x isNotEqualTo _rackId
             };
+
+            _rackOwner setVariable [
+                "acre_sys_rack_vehicleRacks",
+                _vehicleRacks,
+                true
+            ];
 
             {
                 if (
-                    _x find _prefix isEqualTo 0 &&
-                    {!isNil "acre_sys_radio_fnc_radioExists"} &&
-                    {[_x] call acre_sys_radio_fnc_radioExists}
+                    toLower (
+                        typeOf _x
+                    ) isEqualTo _rackId
                 ) then {
-                    [
-                        _x,
-                        false
-                    ] call acre_sys_radio_fnc_setRadioOpenState;
+                    deleteVehicle _x;
                 };
-            } forEach [
-                _primary,
-                _companion
-            ];
-
-            uiNamespace setVariable [
-                "UKSF_PRC163_guiRadio",
-                ""
-            ];
-
-            uiNamespace setVariable [
-                "UKSF_PRC163_display",
-                displayNull
-            ];
-        };
-
-        if !(_companion isEqualTo "") then {
-            [
-                _companion
-            ] call _removeFromAcreLists;
-
-            if (
-                !isNil "acre_api_fnc_getMultiPushToTalkAssignment" &&
-                {!isNil "acre_api_fnc_setMultiPushToTalkAssignment"}
-            ) then {
-                private _assignments =
-                    [] call acre_api_fnc_getMultiPushToTalkAssignment;
-
-                private _filteredAssignments = _assignments select {
-                    toLower _x isNotEqualTo _companion
-                };
-
-                if (_filteredAssignments isNotEqualTo _assignments) then {
+            } forEach (
+                nearestObjects [
                     [
-                        _filteredAssignments
-                    ] call acre_api_fnc_setMultiPushToTalkAssignment;
-                };
-            };
-
-            {
-                [
-                    _companion,
-                    "setState",
+                        -1000,
+                        -1000,
+                        -1000
+                    ],
                     [
-                        _x,
-                        ""
-                    ]
-                ] call acre_sys_data_fnc_dataEvent;
-            } forEach [
-                "prc163PrimaryRadio",
-                "prc163CompanionRadio",
-                "prc163CompanionRack"
-            ];
-
-            {
-                [
-                    _companion,
-                    "setState",
-                    [
-                        _x,
-                        0
-                    ]
-                ] call acre_sys_data_fnc_dataEvent;
-            } forEach [
-                "prc163PTTDown",
-                "prc163TransmittingA",
-                "prc163TransmittingB"
-            ];
+                        "ACRE_baseRack"
+                    ],
+                    2,
+                    true
+                ]
+            );
         };
 
         if !(_primary isEqualTo "") then {
-            {
+            [
+                _primary,
+                "setState",
                 [
-                    _primary,
-                    "setState",
-                    [
-                        _x,
-                        ""
-                    ]
-                ] call acre_sys_data_fnc_dataEvent;
-            } forEach [
-                "prc163CompanionRadio",
-                "prc163CompanionRack"
-            ];
-        };
+                    "prc163CompanionRadio",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
 
-        [
-            _rackOwner,
-            _rackId,
-            _rackName
-        ] call _deleteRack;
-
-        if (_currentRadio isEqualTo _companion) then {
-            private _available = [] call acre_api_fnc_getCurrentRadioList;
-
-            if (
-                _available isEqualType [] &&
-                {_available isNotEqualTo []}
-            ) then {
+            [
+                _primary,
+                "setState",
                 [
-                    _available select 0
-                ] call acre_api_fnc_setCurrentRadio;
-            };
+                    "prc163CompanionRack",
+                    ""
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
         };
     };
 
@@ -399,40 +221,6 @@ if (!hasInterface) exitWith {};
         } forEach (
             keys _map
         );
-
-        {
-            private _rackName = format [
-                "UKSF PRC163 RT2 %1",
-                toUpper _x
-            ];
-
-            [
-                player,
-                "",
-                _rackName
-            ] call _deleteRack;
-        } forEach (
-            keys _pending
-        );
-
-        private _disabledGear = (
-            [player] call acre_sys_core_fnc_getGear
-        ) apply {
-            toLower _x
-        };
-
-        ACRE_EXTERNALLY_USED_MANPACK_RADIOS =
-            ACRE_EXTERNALLY_USED_MANPACK_RADIOS select {
-                private _radioId = toLower _x;
-
-                _radioId find _prefix != 0 ||
-                {_radioId in _disabledGear}
-            };
-
-        missionNamespace setVariable [
-            "UKSF_PRC163_companionRadios",
-            []
-        ];
 
         missionNamespace setVariable [
             "UKSF_PRC163_endpointMap",
@@ -455,17 +243,18 @@ if (!hasInterface) exitWith {};
         ];
     };
 
-    private _functionsAvailable = (
+    private _rackFunctionsAvailable = (
         !(isNil "acre_sys_rack_fnc_addRack") &&
         {!(isNil "acre_sys_rack_fnc_getMountedRadio")} &&
         {!(isNil "acre_sys_rack_fnc_getVehicleFromRack")} &&
-        {!(isNil "acre_sys_radio_fnc_radioExists")}
+        {!(isNil "acre_sys_rack_fnc_startUsingMountedRadio")} &&
+        {!(isNil "acre_sys_rack_fnc_stopUsingMountedRadio")}
     );
 
-    if (!_functionsAvailable) exitWith {
+    if (!_rackFunctionsAvailable) exitWith {
         missionNamespace setVariable [
             "UKSF_PRC163_companionStatus",
-            "ACRE FUNCTIONS UNAVAILABLE"
+            "ACRE RACK FUNCTIONS UNAVAILABLE"
         ];
     };
 
@@ -481,13 +270,65 @@ if (!hasInterface) exitWith {};
 
     _primaries sort true;
 
-    private _trackedPrimaries = (
-        keys _map
-    ) + (
-        keys _pending
-    );
+    private _rackHost = objectParent player;
 
-    _trackedPrimaries = _trackedPrimaries arrayIntersect _trackedPrimaries;
+    if (isNull _rackHost) then {
+        _rackHost = player;
+    };
+
+    private _rackAllowed = [
+        "external"
+    ];
+
+    if !(_rackHost isEqualTo player) then {
+        _rackAllowed = [];
+
+        {
+            private _role = toLower (
+                _x select 1
+            );
+
+            if (_role isEqualTo "cargo") then {
+                _role = format [
+                    "%1_%2",
+                    _role,
+                    _x select 2
+                ];
+            } else {
+                if (_role isEqualTo "turret") then {
+                    _role = format [
+                        "%1_%2",
+                        _role,
+                        _x select 3
+                    ];
+                };
+            };
+
+            if !(_role isEqualTo "") then {
+                _rackAllowed pushBackUnique _role;
+
+                _rackAllowed pushBackUnique format [
+                    "turnedout_%1",
+                    _role
+                ];
+            };
+        } forEach (
+            fullCrew [
+                _rackHost,
+                "",
+                true
+            ]
+        );
+
+        if (_rackAllowed isEqualTo []) then {
+            _rackAllowed = [
+                "driver",
+                "commander",
+                "gunner",
+                "copilot"
+            ];
+        };
+    };
 
     {
         private _primary = _x;
@@ -506,7 +347,9 @@ if (!hasInterface) exitWith {};
                     diag_tickTime
                 ];
             } else {
-                if (diag_tickTime - _missingAt >= 3) then {
+                if (
+                    diag_tickTime - _missingAt >= 3
+                ) then {
                     private _entry = _map getOrDefault [
                         _primary,
                         []
@@ -523,7 +366,9 @@ if (!hasInterface) exitWith {};
                 };
             };
         };
-    } forEach _trackedPrimaries;
+    } forEach (
+        keys _map
+    );
 
     {
         if !(_x in (keys _map)) then {
@@ -533,18 +378,13 @@ if (!hasInterface) exitWith {};
         keys _missingSince
     );
 
-    private _rackHost = player;
-
     private _rackIds = _rackHost getVariable [
         "acre_sys_rack_vehicleRacks",
         []
     ];
 
-    private _validCompanions = [];
-
     {
         private _primary = _x;
-
         private _rackName = format [
             "UKSF PRC163 RT2 %1",
             toUpper _primary
@@ -604,37 +444,34 @@ if (!hasInterface) exitWith {};
             _entryValid = (
                 _rackPresent &&
                 {_mounted isEqualTo _companion} &&
-                {_owner isEqualTo _rackHost} &&
-                {[_companion] call acre_sys_radio_fnc_radioExists}
+                {_owner isEqualTo _rackHost}
             );
         };
 
-        if (!_entryValid && {_entry isNotEqualTo []}) then {
-            [
-                _primary,
-                _entry
-            ] call _cleanupEndpoint;
+        if (!_entryValid) then {
+            if (_entry isNotEqualTo []) then {
+                [
+                    _primary,
+                    _entry
+                ] call _cleanupEndpoint;
 
-            _map deleteAt _primary;
+                _map deleteAt _primary;
+            };
+
             _companion = "";
             _rackId = "";
-            _rackIds = _rackHost getVariable [
-                "acre_sys_rack_vehicleRacks",
-                []
-            ];
-        };
 
-        if (!_entryValid) then {
             {
-                private _candidateRack = toLower _x;
-
+                private _candidateRack = _x;
                 private _candidateName = [
                     _candidateRack,
                     "getState",
                     "name"
                 ] call acre_sys_data_fnc_dataEvent;
 
-                if (isNil "_candidateName") then {
+                if (
+                    isNil "_candidateName"
+                ) then {
                     _candidateName = "";
                 };
 
@@ -642,28 +479,63 @@ if (!hasInterface) exitWith {};
                     _rackId isEqualTo "" &&
                     {_candidateName isEqualTo _rackName}
                 ) then {
+                    private _candidateRadio = toLower (
+                        [
+                            _candidateRack
+                        ] call acre_sys_rack_fnc_getMountedRadio
+                    );
+
                     private _candidateOwner = [
                         _candidateRack
                     ] call acre_sys_rack_fnc_getVehicleFromRack;
 
-                    if (_candidateOwner isEqualTo _rackHost) then {
-                        _rackId = _candidateRack;
-                        _companion = toLower (
-                            [
-                                _candidateRack
-                            ] call acre_sys_rack_fnc_getMountedRadio
-                        );
+                    if (
+                        _candidateRadio find _prefix isEqualTo 0 &&
+                        {_candidateOwner isEqualTo _rackHost}
+                    ) then {
+                        _rackId = toLower _candidateRack;
+                        _companion = _candidateRadio;
                     };
                 };
             } forEach _rackIds;
 
             if (
-                !(_rackId isEqualTo "") &&
-                {_companion find _prefix isEqualTo 0} &&
-                {[_companion] call acre_sys_radio_fnc_radioExists}
+                _rackId isEqualTo "" ||
+                {_companion isEqualTo ""}
             ) then {
-                _entryValid = true;
+                private _requestedAt = _pending getOrDefault [
+                    _primary,
+                    -100
+                ];
 
+                if (
+                    diag_tickTime - _requestedAt >= 3
+                ) then {
+                    player setVariable [
+                        "acre_sys_rack_initPlayer",
+                        player,
+                        true
+                    ];
+
+                    [
+                        _rackHost,
+                        "ACRE_VRC110",
+                        _rackName,
+                        "RT2",
+                        false,
+                        _rackAllowed,
+                        [],
+                        "ACRE_PRC163",
+                        [],
+                        []
+                    ] call acre_sys_rack_fnc_addRack;
+
+                    _pending set [
+                        _primary,
+                        diag_tickTime
+                    ];
+                };
+            } else {
                 _map set [
                     _primary,
                     [
@@ -672,112 +544,20 @@ if (!hasInterface) exitWith {};
                     ]
                 ];
 
-                missionNamespace setVariable [
-                    "UKSF_PRC163_endpointMap",
-                    _map
-                ];
-
                 _pending deleteAt _primary;
-            } else {
-                private _requestedAt = _pending getOrDefault [
-                    _primary,
-                    -1
-                ];
-
-                private _queue = _rackHost getVariable [
-                    "acre_sys_rack_queue",
-                    []
-                ];
-
-                private _queued = (
-                    _queue findIf {
-                        (_x param [1,"",[""]]) isEqualTo _rackName
-                    }
-                ) >= 0;
-
-                if (!(_rackId isEqualTo "")) then {
-                    if (_requestedAt < 0) then {
-                        _pending set [
-                            _primary,
-                            diag_tickTime
-                        ];
-                    } else {
-                        if (diag_tickTime - _requestedAt >= 10) then {
-                            [
-                                _rackHost,
-                                _rackId,
-                                _rackName
-                            ] call _deleteRack;
-
-                            _pending deleteAt _primary;
-                            _rackIds = _rackHost getVariable [
-                                "acre_sys_rack_vehicleRacks",
-                                []
-                            ];
-                        };
-                    };
-                } else {
-                    if (_queued) then {
-                        if (_requestedAt < 0) then {
-                            _pending set [
-                                _primary,
-                                diag_tickTime
-                            ];
-                        } else {
-                            if (diag_tickTime - _requestedAt >= 10) then {
-                                _queue = _queue select {
-                                    (_x param [1,"",[""]]) isNotEqualTo _rackName
-                                };
-
-                                _rackHost setVariable [
-                                    "acre_sys_rack_queue",
-                                    _queue
-                                ];
-
-                                _pending deleteAt _primary;
-                            };
-                        };
-                    } else {
-                        if (
-                            _requestedAt < 0 ||
-                            {diag_tickTime - _requestedAt >= 3}
-                        ) then {
-                            _rackHost setVariable [
-                                "acre_sys_rack_initPlayer",
-                                player,
-                                true
-                            ];
-
-                            [
-                                _rackHost,
-                                "ACRE_VRC110",
-                                _rackName,
-                                "RT2",
-                                false,
-                                [],
-                                [],
-                                "ACRE_PRC163",
-                                [],
-                                []
-                            ] call acre_sys_rack_fnc_addRack;
-
-                            _pending set [
-                                _primary,
-                                diag_tickTime
-                            ];
-                        };
-                    };
-                };
             };
         };
 
-        if (_entryValid) then {
+        if (
+            !(_companion isEqualTo "") &&
+            {!(_rackId isEqualTo "")}
+        ) then {
             [
                 _rackId,
                 "setState",
                 [
                     "allowed",
-                    []
+                    _rackAllowed
                 ]
             ] call acre_sys_data_fnc_dataEvent;
 
@@ -798,14 +578,6 @@ if (!hasInterface) exitWith {};
                     "BAT"
                 ]
             ] call acre_sys_data_fnc_dataEvent;
-
-            [
-                _companion,
-                false,
-                false
-            ] call _removeFromAcreLists;
-
-            ACRE_EXTERNALLY_USED_MANPACK_RADIOS pushBackUnique _companion;
 
             [
                 _primary,
@@ -914,113 +686,115 @@ if (!hasInterface) exitWith {};
                 _channelB = 0;
             };
 
-            [
-                _primary,
-                "setCurrentChannel",
-                _channelA
-            ] call acre_sys_data_fnc_dataEvent;
+            private _pairPTTDown = (
+                [
+                    _primary,
+                    "getState",
+                    "prc163PTTDown"
+                ] call acre_sys_data_fnc_dataEvent
+            ) isEqualTo 1;
 
-            [
+            private _corePTTDown = missionNamespace getVariable ["acre_sys_core_pttKeyDown",false];
+            private _broadcastPair = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+            private _rememberedPair = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+            if (
+                !_corePTTDown &&
+                {_pairPTTDown || {_broadcastPair in [_primary,_companion]} || {_rememberedPair in [_primary,_companion]}}
+            ) then {
+                [_primary,player,false,_companion] call UKSF_PRC163_fnc_normalizePairState;
+                _pairPTTDown = false;
+            };
+
+            if (!_pairPTTDown) then {
+                [
+                    _primary,
+                    "setCurrentChannel",
+                    _channelA
+                ] call acre_sys_data_fnc_dataEvent;
+
+                [
+                    _companion,
+                    "setCurrentChannel",
+                    _channelB
+                ] call acre_sys_data_fnc_dataEvent;
+
+                private _currentPairRadio = toLower (
+                    [] call acre_api_fnc_getCurrentRadio
+                );
+
+                if (_currentPairRadio isEqualTo _companion) then {
+                    [
+                        _primary
+                    ] call acre_api_fnc_setCurrentRadio;
+                };
+            };
+
+            private _radioList = (
+                [] call acre_api_fnc_getCurrentRadioList
+            ) apply {
+                toLower _x
+            };
+
+            private _rackAccessible = [
                 _companion,
-                "setCurrentChannel",
-                _channelB
-            ] call acre_sys_data_fnc_dataEvent;
+                player
+            ] call acre_sys_rack_fnc_isRadioAccessible;
 
-            _validCompanions pushBackUnique _companion;
-        };
-    } forEach _primaries;
+            private _accessibleRackRadios = if (
+                isNil "ACRE_ACCESSIBLE_RACK_RADIOS"
+            ) then {
+                []
+            } else {
+                ACRE_ACCESSIBLE_RACK_RADIOS apply {
+                    toLower _x
+                }
+            };
 
-    private _activeRackIds = [];
-    private _activeRackNames = [];
+            if (
+                _rackAccessible &&
+                {
+                    !(_companion in _radioList) ||
+                    {!(_companion in _accessibleRackRadios)}
+                }
+            ) then {
+                private _oldActive = [] call acre_api_fnc_getCurrentRadio;
 
-    {
-        private _activeEntry = _map getOrDefault [
-            _x,
-            []
-        ];
+                if (
+                    isNil "_oldActive"
+                ) then {
+                    _oldActive = "";
+                };
 
-        private _activeRackId = toLower (
-            _activeEntry param [
-                1,
-                "",
-                [""]
-            ]
-        );
+                [
+                    _rackHost,
+                    player,
+                    _companion
+                ] call acre_sys_rack_fnc_startUsingMountedRadio;
 
-        if !(_activeRackId isEqualTo "") then {
-            _activeRackIds pushBackUnique _activeRackId;
-
-            private _activeRackName = [
-                _activeRackId,
-                "getState",
-                "name"
-            ] call acre_sys_data_fnc_dataEvent;
-
-            if (_activeRackName isEqualType "") then {
-                _activeRackNames pushBackUnique _activeRackName;
+                if (
+                    !(_oldActive isEqualTo "") &&
+                    {
+                        toLower _oldActive
+                        in (
+                            (
+                                [] call acre_api_fnc_getCurrentRadioList
+                            ) apply {
+                                toLower _x
+                            }
+                        )
+                    }
+                ) then {
+                    [
+                        _oldActive
+                    ] call acre_api_fnc_setCurrentRadio;
+                } else {
+                    [
+                        _primary
+                    ] call acre_api_fnc_setCurrentRadio;
+                };
             };
         };
-    } forEach (keys _map);
-
-    private _expectedRackNames = _primaries apply {
-        format [
-            "UKSF PRC163 RT2 %1",
-            toUpper _x
-        ]
-    };
-
-    private _latestRackIds = _rackHost getVariable [
-        "acre_sys_rack_vehicleRacks",
-        []
-    ];
-
-    {
-        private _candidateRackId = toLower _x;
-        private _candidateName = [
-            _candidateRackId,
-            "getState",
-            "name"
-        ] call acre_sys_data_fnc_dataEvent;
-
-        if (isNil "_candidateName") then {
-            _candidateName = "";
-        };
-
-        private _isPrcRack = (
-            _candidateName isEqualType "" &&
-            {_candidateName find "UKSF PRC163 RT2 " isEqualTo 0}
-        );
-
-        private _isActiveRack = _candidateRackId in _activeRackIds;
-        private _isExpectedRack = _candidateName in _expectedRackNames;
-        private _isDuplicateRack = (
-            _candidateName in _activeRackNames &&
-            {!_isActiveRack}
-        );
-
-        if (
-            _isPrcRack &&
-            {
-                _isDuplicateRack ||
-                {!_isActiveRack && {!_isExpectedRack}}
-            }
-        ) then {
-            [
-                _rackHost,
-                _candidateRackId,
-                _candidateName
-            ] call _deleteRack;
-        };
-    } forEach _latestRackIds;
-
-    ACRE_EXTERNALLY_USED_MANPACK_RADIOS =
-        ACRE_EXTERNALLY_USED_MANPACK_RADIOS select {
-            private _radioId = toLower _x;
-
-            _radioId find _prefix != 0 ||
-            {_radioId in _validCompanions} ||
-            {_radioId in _gear}
-        };
+    } forEach _primaries;
 
     missionNamespace setVariable [
         "UKSF_PRC163_endpointMap",
@@ -1035,11 +809,6 @@ if (!hasInterface) exitWith {};
     missionNamespace setVariable [
         "UKSF_PRC163_primaryMissingSince",
         _missingSince
-    ];
-
-    missionNamespace setVariable [
-        "UKSF_PRC163_companionRadios",
-        _validCompanions
     ];
 
     missionNamespace setVariable [
@@ -1067,6 +836,13 @@ if (!hasInterface) exitWith {};
     ];
 
     if (_keyUpId < 0) then {
+        private _broadcastAtOpen = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+        private _rememberedAtOpen = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+        private _heldPRC = if (_broadcastAtOpen find "acre_prc163_id_" isEqualTo 0) then {_broadcastAtOpen} else {_rememberedAtOpen};
+        if (_heldPRC find "acre_prc163_id_" isEqualTo 0) then {
+            [_heldPRC,player,true] call UKSF_PRC163_fnc_normalizePairState;
+        };
+
         _keyUpId = _zeusDisplay displayAddEventHandler [
             "KeyUp",
             {
@@ -1312,14 +1088,7 @@ if (!hasInterface) exitWith {};
 
             if (
                 !(_radioB isEqualTo "") &&
-                {_radioB find _prefix isEqualTo 0} &&
-                {
-                    [
-                        _radioA,
-                        _radioB,
-                        player
-                    ] call UKSF_PRC163_fnc_isPairHealthy
-                }
+                {_radioB find _prefix isEqualTo 0}
             ) then {
                 private _pairRadios = [
                     _radioA,
@@ -2160,10 +1929,6 @@ if (!hasInterface) exitWith {};
 
     _radioEntries sort true;
 
-    private _currentRadio = toLower (
-        [] call acre_api_fnc_getCurrentRadio
-    );
-
     {
         _x params [
             "_numberA",
@@ -2182,47 +1947,54 @@ if (!hasInterface) exitWith {};
 
                 private _channelA = [
                     _radioA,
-                    "getCurrentChannel"
+                    "getState",
+                    "prc163ChannelA"
                 ] call acre_sys_data_fnc_dataEvent;
 
                 private _channelB = [
-                    _radioB,
-                    "getCurrentChannel"
+                    _radioA,
+                    "getState",
+                    "prc163ChannelB"
                 ] call acre_sys_data_fnc_dataEvent;
 
-                private _selectedLine = if (
-                    _currentRadio isEqualTo _radioA
-                ) then {
-                    0
-                } else {
-                    if (
-                        _currentRadio isEqualTo _radioB
-                    ) then {
-                        1
-                    } else {
-                        private _storedLine = [
-                            _radioA,
-                            "getState",
-                            "prc163SelectedLine"
-                        ] call acre_sys_data_fnc_dataEvent;
+                private _selectedLine = [
+                    _radioA,
+                    "getState",
+                    "prc163SelectedLine"
+                ] call acre_sys_data_fnc_dataEvent;
 
-                        if (_storedLine in [0,1]) then {
-                            _storedLine
-                        } else {
-                            0
-                        }
-                    }
+                if !(_selectedLine in [0,1]) then {
+                    _selectedLine = 0;
                 };
 
-                {
+                private _pairPTTDown = (
+                    [
+                        _radioA,
+                        "getState",
+                        "prc163PTTDown"
+                    ] call acre_sys_data_fnc_dataEvent
+                ) isEqualTo 1;
+
+                private _corePTTDown = missionNamespace getVariable ["acre_sys_core_pttKeyDown",false];
+                private _broadcastPair = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+                private _rememberedPair = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+                if (
+                    !_corePTTDown &&
+                    {_pairPTTDown || {_broadcastPair in [_radioA,_radioB]} || {_rememberedPair in [_radioA,_radioB]}}
+                ) then {
+                    [_radioA,player,false,_radioB] call UKSF_PRC163_fnc_normalizePairState;
+                    _pairPTTDown = false;
+                };
+
+                if (!_pairPTTDown) then {
                     if (
                         _channelA isEqualType 0 &&
                         {_channelA >= 0}
                     ) then {
                         [
-                            _x,
-                            "setState",
-                            ["prc163ChannelA",_channelA]
+                            _radioA,
+                            "setCurrentChannel",
+                            _channelA
                         ] call acre_sys_data_fnc_dataEvent;
                     };
 
@@ -2231,12 +2003,24 @@ if (!hasInterface) exitWith {};
                         {_channelB >= 0}
                     ) then {
                         [
-                            _x,
-                            "setState",
-                            ["prc163ChannelB",_channelB]
+                            _radioB,
+                            "setCurrentChannel",
+                            _channelB
                         ] call acre_sys_data_fnc_dataEvent;
                     };
 
+                    private _currentPairRadio = toLower (
+                        [] call acre_api_fnc_getCurrentRadio
+                    );
+
+                    if (_currentPairRadio isEqualTo _radioB) then {
+                        [
+                            _radioA
+                        ] call acre_api_fnc_setCurrentRadio;
+                    };
+                };
+
+                {
                     [
                         _x,
                         "setState",

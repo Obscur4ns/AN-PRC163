@@ -144,7 +144,8 @@ if !(
     [
         _radioA,
         _radioB,
-        player
+        player,
+        false
     ] call UKSF_PRC163_fnc_isPairHealthy
 ) exitWith {
     createHashMap

@@ -7,7 +7,7 @@ _radioId = toLower _radioId;
 private _pair = [
     _radioId,
     player,
-    true
+    false
 ] call UKSF_PRC163_fnc_resolvePair;
 
 _pair params [
@@ -28,32 +28,25 @@ private _selectedLine = [
     "prc163SelectedLine"
 ] call acre_sys_data_fnc_dataEvent;
 
-private _stateReady = true;
-
 if !(_selectedLine in [0,1]) then {
-    _stateReady = [
-        _radioA
-    ] call UKSF_PRC163_fnc_initializeState;
-
-    _selectedLine = [
-        _radioA,
-        "getState",
-        "prc163SelectedLine"
-    ] call acre_sys_data_fnc_dataEvent;
+    if !(
+        [
+            _radioA
+        ] call UKSF_PRC163_fnc_initializeState
+    ) exitWith {
+        false
+    };
 };
 
-if (!_stateReady) exitWith {
+private _available = (
+    [] call acre_api_fnc_getCurrentRadioList
+) apply {
+    toLower _x
+};
+
+if !(_radioA in _available) exitWith {
     false
 };
-
-if !(_selectedLine in [0,1]) then {
-    _selectedLine = 0;
-};
-
-private _targetRadioId = [
-    _radioA,
-    _radioB
-] select _selectedLine;
 
 private _display = uiNamespace getVariable [
     "UKSF_PRC163_display",
@@ -73,35 +66,24 @@ private _storedGuiRadio = if (
     ""
 };
 
-if (!(isNull _display) && {!(_storedGuiRadio in [_radioA,_radioB])}) then {
+if (
+    !(isNull _display) &&
+    {!(_storedGuiRadio in [_radioA,_radioB])}
+) then {
     closeDialog 0;
     _display = displayNull;
 };
 
 if (
     isNull _display &&
-    {!([_targetRadioId] call acre_sys_radio_fnc_canOpenRadio)}
+    {!([_radioA] call acre_sys_radio_fnc_canOpenRadio)}
 ) exitWith {
     false
 };
 
-{
-    [
-        _x,
-        "setState",
-        [
-            "prc163SelectedLine",
-            _selectedLine
-        ]
-    ] call acre_sys_data_fnc_dataEvent;
-} forEach [
-    _radioA,
-    _radioB
-];
-
 if !(
     [
-        _targetRadioId
+        _radioA
     ] call acre_api_fnc_setCurrentRadio
 ) exitWith {
     false
@@ -109,12 +91,12 @@ if !(
 
 missionNamespace setVariable [
     "UKSF_PRC163_activeRadio",
-    _targetRadioId
+    _radioA
 ];
 
 uiNamespace setVariable [
     "UKSF_PRC163_guiRadio",
-    _targetRadioId
+    _radioA
 ];
 
 if !(isNull _display) exitWith {
@@ -123,7 +105,7 @@ if !(isNull _display) exitWith {
     ] call UKSF_PRC163_fnc_updateDialog;
 
     [
-        _targetRadioId,
+        _radioA,
         true
     ] call acre_sys_radio_fnc_setRadioOpenState;
 
@@ -166,7 +148,7 @@ _newDisplay call _initDisplayCurator;
 ] call UKSF_PRC163_fnc_updateDialog;
 
 [
-    _targetRadioId,
+    _radioA,
     true
 ] call acre_sys_radio_fnc_setRadioOpenState;
 

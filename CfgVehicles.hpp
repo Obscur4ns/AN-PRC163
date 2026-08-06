@@ -5,8 +5,13 @@ class CfgVehicles
     {
         class ACE_SelfActions
         {
-            class ACRE_Interact
+            class UKSF_PRC163_Interact
             {
+                displayName = "AN/PRC-163";
+                condition = "(([_player] call acre_sys_core_fnc_getGear) findIf {(toLower _x) find 'acre_prc163_id_' isEqualTo 0}) >= 0";
+                exceptions[] = {"isNotInside","isNotSitting"};
+                statement = "";
+                icon = "\UKSF_PRC163\data\ui\prc163_icon.paa";
                 insertChildren = "_this call UKSF_PRC163_fnc_getInteractionChildren";
             };
         };

@@ -53,13 +53,8 @@ private _insertRadioChildren = {
 
                 if (
                     _slot > 0 &&
-                    {
-                        [
-                            _radioA,
-                            _radioB,
-                            _player
-                        ] call UKSF_PRC163_fnc_isPairHealthy
-                    }
+                    {_radioB find _prefix isEqualTo 0} &&
+                    {_radioB isNotEqualTo _radioA}
                 ) then {
                     _pairEntries pushBackUnique [
                         _slot,
@@ -90,13 +85,7 @@ private _insertRadioChildren = {
                         _number + 1
                     ];
 
-                    if (
-                        [
-                            _radioA,
-                            _radioB,
-                            _player
-                        ] call UKSF_PRC163_fnc_isPairHealthy
-                    ) then {
+                    if (_radioB in _radios) then {
                         _pairEntries pushBackUnique [
                             floor (
                                 (_number + 1) / 2
@@ -265,22 +254,21 @@ private _insertRadioChildren = {
         };
 
         private _pairCondition = {
-            params [
-                "_target",
-                "_player",
-                "_arguments"
-            ];
-
-            _arguments params [
-                "_radioA",
-                "_radioB"
-            ];
-
-            [
-                _radioA,
-                _radioB,
-                _player
-            ] call UKSF_PRC163_fnc_isPairHealthy
+            params ["_target","_player","_arguments"];
+            _arguments params ["_radioA","_radioB"];
+            private _pair = [_radioA,_player,false] call UKSF_PRC163_fnc_resolvePair;
+            if ((_pair param [0,""]) isNotEqualTo _radioA || {(_pair param [1,""]) isNotEqualTo _radioB}) exitWith {false};
+            private _broadcast = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+            private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+            private _pairRadios = [_radioA,_radioB];
+            private _stateDown = (_pairRadios findIf {
+                ([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1
+            }) >= 0;
+            !(
+                ((missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
+                {_broadcast in _pairRadios || {_remembered in _pairRadios}}) ||
+                {_stateDown}
+            )
         };
 
         private _poweredPairCondition = {
@@ -295,14 +283,47 @@ private _insertRadioChildren = {
                 "_radioB"
             ];
 
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {
+            private _carriedRadios = (
+                [_player] call acre_sys_core_fnc_getGear
+            ) apply {
+                toLower _x
+            };
+
+            if !(_radioA in _carriedRadios) exitWith {
                 false
+            };
+
+            if (
+                missionNamespace getVariable [
+                    "UKSF_PRC163_SingleInstancePilot",
+                    false
+                ]
+            ) then {
+                private _endpointMap = missionNamespace getVariable [
+                    "UKSF_PRC163_endpointMap",
+                    createHashMap
+                ];
+
+                private _entry = _endpointMap getOrDefault [
+                    _radioA,
+                    []
+                ];
+
+                if (
+                    toLower (
+                        _entry param [
+                            0,
+                            "",
+                            [""]
+                        ]
+                    ) isNotEqualTo _radioB
+                ) exitWith {
+                    false
+                };
+            } else {
+                if !(_radioB in _carriedRadios) exitWith {
+                    false
+                };
             };
 
             private _powerA = [
@@ -344,11 +365,42 @@ private _insertRadioChildren = {
                 false
             };
 
-            [
+            private _carriedRadios = (
+                [_player] call acre_sys_core_fnc_getGear
+            ) apply {
+                toLower _x
+            };
+
+            if !(_radioA in _carriedRadios) exitWith {
+                false
+            };
+
+            if !(
+                missionNamespace getVariable [
+                    "UKSF_PRC163_SingleInstancePilot",
+                    false
+                ]
+            ) exitWith {
+                _radioB in _carriedRadios
+            };
+
+            private _endpointMap = missionNamespace getVariable [
+                "UKSF_PRC163_endpointMap",
+                createHashMap
+            ];
+
+            private _entry = _endpointMap getOrDefault [
                 _radioA,
-                _radioB,
-                _player
-            ] call UKSF_PRC163_fnc_isPairHealthy
+                []
+            ];
+
+            toLower (
+                _entry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            ) isEqualTo _radioB
         };
 
         private _openStatement = {
@@ -362,14 +414,6 @@ private _insertRadioChildren = {
                 "_radioA",
                 "_radioB"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -409,15 +453,6 @@ private _insertRadioChildren = {
             };
 
             [
-                _radioA
-            ] call acre_api_fnc_setCurrentRadio;
-
-            missionNamespace setVariable [
-                "UKSF_PRC163_activeRadio",
-                _radioA
-            ];
-
-            [
                 _radioA,
                 "openGui"
             ] call acre_sys_data_fnc_interactEvent;
@@ -435,14 +470,6 @@ private _insertRadioChildren = {
                 "_radioB",
                 "_line"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -485,15 +512,6 @@ private _insertRadioChildren = {
             };
 
             [
-                _radioA
-            ] call acre_api_fnc_setCurrentRadio;
-
-            missionNamespace setVariable [
-                "UKSF_PRC163_activeRadio",
-                _radioA
-            ];
-
-            [
                 _radioA,
                 _line
             ] call UKSF_PRC163_fnc_selectLine;
@@ -512,14 +530,6 @@ private _insertRadioChildren = {
                 "_line",
                 "_spatial"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -562,30 +572,22 @@ private _insertRadioChildren = {
                 if !(_radioB in _carriedRadios) exitWith {};
             };
 
-            {
-                [
-                    _x,
-                    "setState",
-                    [
-                        "prc163SelectedLine",
-                        _line
-                    ]
-                ] call acre_sys_data_fnc_dataEvent;
-            } forEach [
-                _radioA,
-                _radioB
-            ];
+            private _pairRadios = [_radioA,_radioB];
+            private _coreDown = missionNamespace getVariable ["acre_sys_core_pttKeyDown",false];
+            private _broadcast = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+            private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+            if (_coreDown && {_broadcast in _pairRadios || {_remembered in _pairRadios}}) exitWith {};
 
-            private _targetRadio = [
-                _radioA,
-                _radioB
-            ] select _line;
+            private _stale = _remembered in _pairRadios || {_broadcast in _pairRadios};
+            if (!_stale) then {
+                _stale = (_pairRadios findIf {
+                    ([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1
+                }) >= 0;
+            };
+            if (_stale) then {[_radioA,_player,false] call UKSF_PRC163_fnc_normalizePairState};
 
-            [
-                _targetRadio,
-                "setSpatial",
-                _spatial
-            ] call acre_sys_data_fnc_dataEvent;
+            private _targetRadio = _pairRadios select _line;
+            [_targetRadio,"setSpatial",_spatial] call acre_sys_data_fnc_dataEvent;
         };
 
         private _dualWatchStatement = {
@@ -599,14 +601,6 @@ private _insertRadioChildren = {
                 "_radioA",
                 "_radioB"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -645,16 +639,7 @@ private _insertRadioChildren = {
                 if !(_radioB in _carriedRadios) exitWith {};
             };
 
-            [
-                _radioA
-            ] call acre_api_fnc_setCurrentRadio;
-
-            missionNamespace setVariable [
-                "UKSF_PRC163_activeRadio",
-                _radioA
-            ];
-
-            [] call UKSF_PRC163_fnc_toggleDualWatch;
+            [_radioA] call UKSF_PRC163_fnc_toggleDualWatch;
         };
 
         private _statusStatement = {
@@ -669,14 +654,6 @@ private _insertRadioChildren = {
                 "_radioB",
                 "_slot"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -722,10 +699,7 @@ private _insertRadioChildren = {
             if ((count _state) isEqualTo 0) exitWith {};
 
             private _message = format [
-                "<t align='center'>AN/PRC-163 %1 - %2"
-                + "<br/><t size='0.9'>R/T 1: P%3 %4</t>"
-                + "<br/><t size='0.9'>R/T 2: P%5 %6</t>"
-                + "<br/><t size='0.85'>DW: %7 | %8</t></t>",
+                "AN/PRC-163 %1 | %2 | R/T 1 P%3 %4 | R/T 2 P%5 %6 | DW %7 | %8",
                 _slot,
                 _state getOrDefault [
                     "powerText",
@@ -767,10 +741,15 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                3,
-                player,
-                10
-            ] call UKSF_PRC163_fnc_notifyStatus;
+                2.5,
+                [
+                    0.78,
+                    0.92,
+                    0.72,
+                    1
+                ],
+                true
+            ] call CBA_fnc_notify;
         };
 
         private _checkBatteryStatement = {
@@ -784,14 +763,6 @@ private _insertRadioChildren = {
                 "_radioA",
                 "_radioB"
             ];
-
-            if !(
-                [
-                    _radioA,
-                    _radioB,
-                    _player
-                ] call UKSF_PRC163_fnc_isPairHealthy
-            ) exitWith {};
 
             private _carriedRadios = (
                 [_player] call acre_sys_core_fnc_getGear
@@ -859,13 +830,12 @@ private _insertRadioChildren = {
                 _installed isEqualTo 0
             ) then {
                 format [
-                    "<t align='center'>AN/PRC-163 %1<br/>NO BATTERY</t>",
+                    "AN/PRC-163 %1 | NO BATTERY",
                     _slot
                 ]
             } else {
                 format [
-                    "<t align='center'>AN/PRC-163 %1"
-                    + "<br/><t size='0.85'>BATTERY: %2%3 | HEALTH: %4%5</t></t>",
+                    "AN/PRC-163 %1 | BATTERY %2%3 | HEALTH %4%5",
                     _slot,
                     _charge,
                     "%",
@@ -876,10 +846,15 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                1.5,
-                player,
-                10
-            ] call UKSF_PRC163_fnc_notifyStatus;
+                2.5,
+                [
+                    0.78,
+                    0.92,
+                    0.72,
+                    1
+                ],
+                true
+            ] call CBA_fnc_notify;
         };
 
         private _replaceBatteryStatement = {
@@ -909,16 +884,6 @@ private _insertRadioChildren = {
                         "_radioB",
                         "_player"
                     ];
-
-                    if !(
-                        [
-                            _radioA,
-                            _radioB,
-                            _player
-                        ] call UKSF_PRC163_fnc_isPairHealthy
-                    ) exitWith {
-                        false
-                    };
 
                     private _carriedRadios = (
                         [_player] call acre_sys_core_fnc_getGear
@@ -973,16 +938,6 @@ private _insertRadioChildren = {
                         "_radioB",
                         "_player"
                     ];
-
-                    if !(
-                        [
-                            _radioA,
-                            _radioB,
-                            _player
-                        ] call UKSF_PRC163_fnc_isPairHealthy
-                    ) exitWith {
-                        false
-                    };
 
                     private _carriedRadios = (
                         [_player] call acre_sys_core_fnc_getGear
@@ -1059,11 +1014,51 @@ private _insertRadioChildren = {
                 false
             };
 
-            [
+            private _pairRadios = [_radioA,_radioB];
+            private _broadcast = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
+            private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+            if (
+                ((missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
+                {_broadcast in _pairRadios || {_remembered in _pairRadios}}) ||
+                {(_pairRadios findIf {([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1}) >= 0}
+            ) exitWith {false};
+
+            private _carriedRadios = (
+                [_player] call acre_sys_core_fnc_getGear
+            ) apply {
+                toLower _x
+            };
+
+            if !(_radioA in _carriedRadios) exitWith {
+                false
+            };
+
+            if !(
+                missionNamespace getVariable [
+                    "UKSF_PRC163_SingleInstancePilot",
+                    false
+                ]
+            ) exitWith {
+                _radioB in _carriedRadios
+            };
+
+            private _endpointMap = missionNamespace getVariable [
+                "UKSF_PRC163_endpointMap",
+                createHashMap
+            ];
+
+            private _entry = _endpointMap getOrDefault [
                 _radioA,
-                _radioB,
-                _player
-            ] call UKSF_PRC163_fnc_isPairHealthy
+                []
+            ];
+
+            toLower (
+                _entry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            ) isEqualTo _radioB
         };
 
         private _openAction = [
@@ -1557,5 +1552,61 @@ missionNamespace setVariable [
     "UKSF_PRC163_interactionChildren",
     _insertRadioChildren
 ];
+
+private _installWrapper = {
+    if (
+        isNil "acre_ace_interact_fnc_radioListChildrenActions" ||
+        {isNil "UKSF_PRC163_fnc_getInteractionChildren"}
+    ) exitWith {
+        false
+    };
+
+    private _installed = missionNamespace getVariable [
+        "UKSF_PRC163_interactionWrapperInstalled",
+        false
+    ];
+
+    if (_installed) exitWith {
+        acre_ace_interact_fnc_radioListChildrenActions =
+            UKSF_PRC163_fnc_getInteractionChildren;
+        true
+    };
+
+    private _nativeChildren = missionNamespace getVariable [
+        "UKSF_PRC163_nativeRadioListChildrenActions",
+        objNull
+    ];
+
+    if !(_nativeChildren isEqualType {}) then {
+        missionNamespace setVariable [
+            "UKSF_PRC163_nativeRadioListChildrenActions",
+            acre_ace_interact_fnc_radioListChildrenActions
+        ];
+    };
+
+    acre_ace_interact_fnc_radioListChildrenActions =
+        UKSF_PRC163_fnc_getInteractionChildren;
+
+    missionNamespace setVariable [
+        "UKSF_PRC163_interactionWrapperInstalled",
+        true
+    ];
+
+    true
+};
+
+if (call _installWrapper) exitWith {
+    true
+};
+
+[
+    {
+        !isNil "acre_ace_interact_fnc_radioListChildrenActions" &&
+        {!isNil "UKSF_PRC163_fnc_getInteractionChildren"}
+    },
+    _installWrapper,
+    [],
+    30
+] call CBA_fnc_waitUntilAndExecute;
 
 true

@@ -13,6 +13,7 @@ class CfgFunctions {
             class getInteractionChildren {};
             class isPairHealthy {};
             class resolvePair {};
+            class normalizePairState {};
             class getTargetRadio {};
             class getBatterySlot {};
             class getBatteryRecord {};
