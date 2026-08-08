@@ -21,7 +21,6 @@ if (
     _radioA = _radioId;
     _radioB = _radioBHint;
 };
-
 if (_radioA isEqualTo "" || {_radioB isEqualTo ""}) exitWith {false};
 
 private _pairRadios = [_radioA,_radioB];
@@ -31,7 +30,26 @@ private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRad
 private _pairOwnsBroadcast = _broadcast in _pairRadios;
 private _coreDown = missionNamespace getVariable ["acre_sys_core_pttKeyDown",false];
 
-if (_pairOwnsBroadcast && {_coreDown}) then {
+private _nativeDownRadios = _pairRadios select {
+    private _value = [_x,"PTTDown",false] call acre_sys_data_fnc_getScratchData;
+    _value isEqualTo true || {_value isEqualTo 1}
+};
+private _customDown = (_pairRadios findIf {
+    ([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1
+}) >= 0;
+private _customTransmit = (_pairRadios findIf {
+    (([_x,"getState","prc163TransmittingA"] call acre_sys_data_fnc_dataEvent) isEqualTo 1) ||
+    {([_x,"getState","prc163TransmittingB"] call acre_sys_data_fnc_dataEvent) isEqualTo 1}
+}) >= 0;
+private _rememberedPair = _remembered in _pairRadios;
+private _held = missionNamespace getVariable ["UKSF_PRC163_pttHeld",false];
+private _heldForPair = _held && {_rememberedPair || {_pairOwnsBroadcast}};
+private _hasPairPTTState = _nativeDownRadios isNotEqualTo [] || {_customDown} || {_customTransmit} || {_rememberedPair} || {_heldForPair};
+
+/* A broadcast ID by itself after key-up is normal ACRE state, not corruption. */
+if (!_coreDown && {!_hasPairPTTState}) exitWith {true};
+
+if (_coreDown && {_pairOwnsBroadcast}) then {
     if !(isNil "acre_sys_core_fnc_doHandleMultiPttKeyPressUp") then {
         [[_broadcast,true]] call acre_sys_core_fnc_doHandleMultiPttKeyPressUp;
     } else {
@@ -41,18 +59,12 @@ if (_pairOwnsBroadcast && {_coreDown}) then {
         };
         missionNamespace setVariable ["acre_sys_core_pttKeyDown",false];
     };
-
     missionNamespace setVariable ["ACRE_ACTIVE_PTTKEY",-2];
-    missionNamespace setVariable ["ACRE_BROADCASTING_RADIOID",""];
 } else {
-    if (_remembered in _pairRadios || {_pairOwnsBroadcast}) then {
-        private _release = if (_remembered in _pairRadios) then {_remembered} else {_broadcast};
-        [_release] call UKSF_PRC163_fnc_handlePTTUp;
-    };
-
-    if (_pairOwnsBroadcast) then {
-        missionNamespace setVariable ["ACRE_BROADCASTING_RADIOID",""];
-    };
+    /* Core is not transmitting this pair: repair stale endpoint flags silently. */
+    {
+        [_x,"PTTDown",false] call acre_sys_data_fnc_setScratchData;
+    } forEach _nativeDownRadios;
 };
 
 {

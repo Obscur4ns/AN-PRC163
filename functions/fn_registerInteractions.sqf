@@ -261,13 +261,9 @@ private _insertRadioChildren = {
             private _broadcast = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
             private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
             private _pairRadios = [_radioA,_radioB];
-            private _stateDown = (_pairRadios findIf {
-                ([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1
-            }) >= 0;
             !(
-                ((missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
-                {_broadcast in _pairRadios || {_remembered in _pairRadios}}) ||
-                {_stateDown}
+                (missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
+                {_broadcast in _pairRadios || {_remembered in _pairRadios}}
             )
         };
 
@@ -699,7 +695,10 @@ private _insertRadioChildren = {
             if ((count _state) isEqualTo 0) exitWith {};
 
             private _message = format [
-                "AN/PRC-163 %1 | %2 | R/T 1 P%3 %4 | R/T 2 P%5 %6 | DW %7 | %8",
+                "<t align='center'>AN/PRC-163 %1 - %2"
+                + "<br/><t size='0.9'>R/T 1: P%3 %4</t>"
+                + "<br/><t size='0.9'>R/T 2: P%5 %6</t>"
+                + "<br/><t size='0.85'>DW: %7 | %8</t></t>",
                 _slot,
                 _state getOrDefault [
                     "powerText",
@@ -741,15 +740,10 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                2.5,
-                [
-                    0.78,
-                    0.92,
-                    0.72,
-                    1
-                ],
-                true
-            ] call CBA_fnc_notify;
+                3,
+                player,
+                10
+            ] call UKSF_PRC163_fnc_notifyStatus;
         };
 
         private _checkBatteryStatement = {
@@ -830,12 +824,13 @@ private _insertRadioChildren = {
                 _installed isEqualTo 0
             ) then {
                 format [
-                    "AN/PRC-163 %1 | NO BATTERY",
+                    "<t align='center'>AN/PRC-163 %1<br/>NO BATTERY</t>",
                     _slot
                 ]
             } else {
                 format [
-                    "AN/PRC-163 %1 | BATTERY %2%3 | HEALTH %4%5",
+                    "<t align='center'>AN/PRC-163 %1"
+                    + "<br/><t size='0.85'>BATTERY: %2%3 | HEALTH: %4%5</t></t>",
                     _slot,
                     _charge,
                     "%",
@@ -846,15 +841,10 @@ private _insertRadioChildren = {
 
             [
                 _message,
-                2.5,
-                [
-                    0.78,
-                    0.92,
-                    0.72,
-                    1
-                ],
-                true
-            ] call CBA_fnc_notify;
+                1.5,
+                player,
+                10
+            ] call UKSF_PRC163_fnc_notifyStatus;
         };
 
         private _replaceBatteryStatement = {
@@ -1018,9 +1008,8 @@ private _insertRadioChildren = {
             private _broadcast = toLower (missionNamespace getVariable ["ACRE_BROADCASTING_RADIOID",""]);
             private _remembered = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
             if (
-                ((missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
-                {_broadcast in _pairRadios || {_remembered in _pairRadios}}) ||
-                {(_pairRadios findIf {([_x,"getState","prc163PTTDown"] call acre_sys_data_fnc_dataEvent) isEqualTo 1}) >= 0}
+                (missionNamespace getVariable ["acre_sys_core_pttKeyDown",false]) &&
+                {_broadcast in _pairRadios || {_remembered in _pairRadios}}
             ) exitWith {false};
 
             private _carriedRadios = (
@@ -1552,61 +1541,5 @@ missionNamespace setVariable [
     "UKSF_PRC163_interactionChildren",
     _insertRadioChildren
 ];
-
-private _installWrapper = {
-    if (
-        isNil "acre_ace_interact_fnc_radioListChildrenActions" ||
-        {isNil "UKSF_PRC163_fnc_getInteractionChildren"}
-    ) exitWith {
-        false
-    };
-
-    private _installed = missionNamespace getVariable [
-        "UKSF_PRC163_interactionWrapperInstalled",
-        false
-    ];
-
-    if (_installed) exitWith {
-        acre_ace_interact_fnc_radioListChildrenActions =
-            UKSF_PRC163_fnc_getInteractionChildren;
-        true
-    };
-
-    private _nativeChildren = missionNamespace getVariable [
-        "UKSF_PRC163_nativeRadioListChildrenActions",
-        objNull
-    ];
-
-    if !(_nativeChildren isEqualType {}) then {
-        missionNamespace setVariable [
-            "UKSF_PRC163_nativeRadioListChildrenActions",
-            acre_ace_interact_fnc_radioListChildrenActions
-        ];
-    };
-
-    acre_ace_interact_fnc_radioListChildrenActions =
-        UKSF_PRC163_fnc_getInteractionChildren;
-
-    missionNamespace setVariable [
-        "UKSF_PRC163_interactionWrapperInstalled",
-        true
-    ];
-
-    true
-};
-
-if (call _installWrapper) exitWith {
-    true
-};
-
-[
-    {
-        !isNil "acre_ace_interact_fnc_radioListChildrenActions" &&
-        {!isNil "UKSF_PRC163_fnc_getInteractionChildren"}
-    },
-    _installWrapper,
-    [],
-    30
-] call CBA_fnc_waitUntilAndExecute;
 
 true

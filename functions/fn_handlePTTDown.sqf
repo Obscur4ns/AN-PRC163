@@ -18,18 +18,33 @@ private _channelState = ["prc163ChannelA","prc163ChannelB"] select _logicalLine;
 private _txChannel = [_radioA,"getState",_channelState] call acre_sys_data_fnc_dataEvent;
 if (!(_txChannel isEqualType 0) || {_txChannel < 0}) exitWith {false};
 
+/* ACRE core owns real PTT release. Never call native PTT-up from PTT-down. */
 private _previous = toLower (missionNamespace getVariable ["UKSF_PRC163_pttRadio",""]);
+private _previousConflict = false;
 if (_previous in _pairRadios && {_previous isNotEqualTo _source}) then {
-    [_previous] call acre_sys_prc152_fnc_handlePTTUp;
+    private _previousNativeDown = [_previous,"PTTDown",false] call acre_sys_data_fnc_getScratchData;
+    private _previousDown = _previousNativeDown isEqualTo true || {_previousNativeDown isEqualTo 1};
+    private _coreDown = missionNamespace getVariable ["acre_sys_core_pttKeyDown",false];
+
+    if (_previousDown && {_coreDown}) then {
+        _previousConflict = true;
+    } else {
+        if (_previousDown) then {
+            [_previous,"PTTDown",false] call acre_sys_data_fnc_setScratchData;
+        };
+    };
 };
+if (_previousConflict) exitWith {false};
 
 {
     [_x,"setState",["prc163PTTDown",0]] call acre_sys_data_fnc_dataEvent;
     [_x,"setState",["prc163TransmittingA",0]] call acre_sys_data_fnc_dataEvent;
     [_x,"setState",["prc163TransmittingB",0]] call acre_sys_data_fnc_dataEvent;
 } forEach _pairRadios;
+missionNamespace setVariable ["UKSF_PRC163_pttHeld",false];
 missionNamespace setVariable ["UKSF_PRC163_pttRadio",nil];
 missionNamespace setVariable ["UKSF_PRC163_pttLine",-1];
+missionNamespace setVariable ["UKSF_PRC163_pttPrimary",nil];
 
 if (_source isEqualTo _radioB && {!isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS"}) then {
     ACRE_BLOCKED_TRANSMITTING_RADIOS = ACRE_BLOCKED_TRANSMITTING_RADIOS - [_radioB];
@@ -45,6 +60,13 @@ if (_channelB isEqualType 0 && {_channelB >= 0}) then {
 };
 
 [_source,"setCurrentChannel",_txChannel] call acre_sys_data_fnc_dataEvent;
+private _result = [_source] call acre_sys_prc152_fnc_handlePTTDown;
+if (!_result) exitWith {
+    if (_channelA isEqualType 0 && {_channelA >= 0}) then {[_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent};
+    if (_channelB isEqualType 0 && {_channelB >= 0}) then {[_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent};
+    false
+};
+
 {
     [_x,"setState",["prc163PTTDown",1]] call acre_sys_data_fnc_dataEvent;
     [_x,"setState",["prc163TransmittingA",if (_logicalLine isEqualTo 0) then {1} else {0}]] call acre_sys_data_fnc_dataEvent;
@@ -56,20 +78,4 @@ missionNamespace setVariable ["UKSF_PRC163_pttRadio",_source];
 missionNamespace setVariable ["UKSF_PRC163_pttLine",_logicalLine];
 missionNamespace setVariable ["UKSF_PRC163_pttPrimary",_radioA];
 missionNamespace setVariable ["UKSF_PRC163_activeRadio",_radioA];
-
-private _result = [_source] call acre_sys_prc152_fnc_handlePTTDown;
-if (!_result) exitWith {
-    if (_channelA isEqualType 0 && {_channelA >= 0}) then {[_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent};
-    if (_channelB isEqualType 0 && {_channelB >= 0}) then {[_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent};
-    {
-        [_x,"setState",["prc163PTTDown",0]] call acre_sys_data_fnc_dataEvent;
-        [_x,"setState",["prc163TransmittingA",0]] call acre_sys_data_fnc_dataEvent;
-        [_x,"setState",["prc163TransmittingB",0]] call acre_sys_data_fnc_dataEvent;
-    } forEach _pairRadios;
-    missionNamespace setVariable ["UKSF_PRC163_pttHeld",false];
-    missionNamespace setVariable ["UKSF_PRC163_pttRadio",nil];
-    missionNamespace setVariable ["UKSF_PRC163_pttLine",-1];
-    missionNamespace setVariable ["UKSF_PRC163_pttPrimary",nil];
-    false
-};
 true
