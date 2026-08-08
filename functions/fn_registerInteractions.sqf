@@ -132,6 +132,11 @@ private _insertRadioChildren = {
             "R/T 2"
         ] select _selectedLine;
 
+        private _pttAssign = [] call acre_api_fnc_getMultiPushToTalkAssignment;
+        if !(_pttAssign isEqualType []) then {
+            _pttAssign = [];
+        };
+
         private _powerText = _state getOrDefault [
             "powerText",
             "OFF"
@@ -193,6 +198,7 @@ private _insertRadioChildren = {
 
         private _openIcon = "\idi\acre\addons\ace_interact\data\icons\open.paa";
         private _activeIcon = "\idi\acre\addons\ace_interact\data\icons\active.paa";
+        private _pttIcon = "\idi\acre\addons\ace_interact\data\icons\ptt.paa";
         private _leftEarIcon = "\idi\acre\addons\ace_interact\data\icons\left_ear.paa";
         private _bothEarsIcon = "\idi\acre\addons\ace_interact\data\icons\both_ears.paa";
         private _rightEarIcon = "\idi\acre\addons\ace_interact\data\icons\right_ear.paa";
@@ -1100,6 +1106,78 @@ private _insertRadioChildren = {
             ]
         ] call ace_interact_menu_fnc_createAction;
 
+        private _pttIndexA = _pttAssign find _radioA;
+        private _pttTextA = localize "STR_ACRE_ace_interact_bindMultiPushToTalk";
+        private _pttIconA = _pttIcon;
+
+        if (
+            _pttIndexA > -1 &&
+            {_pttIndexA < 3}
+        ) then {
+            _pttTextA = format [
+                localize "STR_ACRE_ace_interact_multiPushToTalk",
+                _pttIndexA + 1
+            ];
+
+            _pttIconA = format [
+                "\idi\acre\addons\ace_interact\data\icons\ptt_%1.paa",
+                _pttIndexA + 1
+            ];
+        };
+
+        private _pttIndexB = _pttAssign find _radioB;
+        private _pttTextB = localize "STR_ACRE_ace_interact_bindMultiPushToTalk";
+        private _pttIconB = _pttIcon;
+
+        if (
+            _pttIndexB > -1 &&
+            {_pttIndexB < 3}
+        ) then {
+            _pttTextB = format [
+                localize "STR_ACRE_ace_interact_multiPushToTalk",
+                _pttIndexB + 1
+            ];
+
+            _pttIconB = format [
+                "\idi\acre\addons\ace_interact\data\icons\ptt_%1.paa",
+                _pttIndexB + 1
+            ];
+        };
+
+        private _pttAAction = [
+            format [
+                "UKSF_PRC163_RT1PTT_%1",
+                _slot
+            ],
+            _pttTextA,
+            _pttIconA,
+            {},
+            {true},
+            acre_ace_interact_fnc_radioPTTChildrenActions,
+            [
+                _radioA,
+                false,
+                _pttAssign
+            ]
+        ] call ace_interact_menu_fnc_createAction;
+
+        private _pttBAction = [
+            format [
+                "UKSF_PRC163_RT2PTT_%1",
+                _slot
+            ],
+            _pttTextB,
+            _pttIconB,
+            {},
+            {true},
+            acre_ace_interact_fnc_radioPTTChildrenActions,
+            [
+                _radioB,
+                false,
+                _pttAssign
+            ]
+        ] call ace_interact_menu_fnc_createAction;
+
         private _leftEarAAction = [
             format [
                 "UKSF_PRC163_RT1Left_%1",
@@ -1462,6 +1540,11 @@ private _insertRadioChildren = {
                 _target
             ],
             [
+                _pttAAction,
+                [],
+                _target
+            ],
+            [
                 _audioAAction,
                 _audioAChildren,
                 _target
@@ -1471,6 +1554,11 @@ private _insertRadioChildren = {
         private _rtBChildren = [
             [
                 _selectBAction,
+                [],
+                _target
+            ],
+            [
+                _pttBAction,
                 [],
                 _target
             ],
