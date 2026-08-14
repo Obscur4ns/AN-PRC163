@@ -1,4 +1,55 @@
 if (!hasInterface) exitWith {};
+if (
+    isNil "UKSF_PRC163_staleRemoteSpeakingEH" &&
+    {!(isNil "CBA_fnc_addEventHandler")}
+) then {
+    UKSF_PRC163_staleRemoteSpeakingEH = [
+        "acre_remoteStartedSpeaking",
+        {
+            params ["_unit","_speakingType","_radioId"];
+
+            if !(_radioId isEqualType "") exitWith {};
+            _radioId = toLower _radioId;
+
+            if (
+                _radioId find "acre_prc163_id_" isEqualTo 0 &&
+                {!(isNil "acre_sys_radio_fnc_radioExists")} &&
+                {!([_radioId] call acre_sys_radio_fnc_radioExists)}
+            ) then {
+                private _now = diag_tickTime;
+                private _last = missionNamespace getVariable [
+                    "UKSF_PRC163_lastStaleRemoteSpeakingLog",
+                    createHashMap
+                ];
+                private _lastAt = _last getOrDefault [_radioId,-10];
+
+                if (_now - _lastAt >= 5) then {
+                    _last set [_radioId,_now];
+                    missionNamespace setVariable [
+                        "UKSF_PRC163_lastStaleRemoteSpeakingLog",
+                        _last
+                    ];
+
+                    diag_log format [
+                        "UKSF_PRC163 STALE REMOTE RADIO: unit=%1 netId=%2 type=%3 radio=%4 map=%5 companions=%6",
+                        if (isNull _unit) then {"<NULL>"} else {name _unit},
+                        if (isNull _unit) then {""} else {netId _unit},
+                        _speakingType,
+                        _radioId,
+                        missionNamespace getVariable [
+                            "UKSF_PRC163_endpointMap",
+                            createHashMap
+                        ],
+                        missionNamespace getVariable [
+                            "UKSF_PRC163_companionRadios",
+                            []
+                        ]
+                    ];
+                };
+            };
+        }
+    ] call CBA_fnc_addEventHandler;
+};
 
 [{
     if (isNull player) exitWith {};
@@ -132,22 +183,98 @@ if (!hasInterface) exitWith {};
         } forEach _owners;
 
         if !(_rackId isEqualTo "") then {
-            [
-                _rackId,
-                "setState",
-                [
-                    "mountedRadio",
-                    ""
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            private _mountedRadio = "";
 
-            {
-                if (toLower (typeOf _x) isEqualTo _rackId) then {
-                    deleteVehicle _x;
-                };
-            } forEach (
-                allMissionObjects "ACRE_baseRack"
-            );
+            if !(isNil "acre_sys_rack_fnc_getMountedRadio") then {
+                _mountedRadio = toLower (
+                    [
+                        _rackId
+                    ] call acre_sys_rack_fnc_getMountedRadio
+                );
+            };
+
+            /*
+                Never immediately destroy a synthetic PRC-163 endpoint that has
+                already been issued a unique ACRE ID. ACRE/TeamSpeak speaking
+                updates can outlive local pair ownership; deleting the rack
+                first can leave remote clients receiving a radio ID that no
+                longer exists.
+
+                The rack is removed from every usable rack list above, renamed
+                so it can never be rediscovered as an active pair, and retained
+                only as a mission-lifetime unique-ID tombstone.
+            */
+            if (_mountedRadio find _prefix isEqualTo 0) then {
+                [
+                    _mountedRadio
+                ] call _removeFromAcreLists;
+
+                [
+                    _rackId,
+                    "setState",
+                    [
+                        "allowed",
+                        []
+                    ]
+                ] call acre_sys_data_fnc_dataEvent;
+
+                [
+                    _rackId,
+                    "setState",
+                    [
+                        "disabled",
+                        []
+                    ]
+                ] call acre_sys_data_fnc_dataEvent;
+
+                [
+                    _rackId,
+                    "setState",
+                    [
+                        "name",
+                        format [
+                            "UKSF PRC163 RETIRED %1",
+                            toUpper _mountedRadio
+                        ]
+                    ]
+                ] call acre_sys_data_fnc_dataEvent;
+
+                private _retired = missionNamespace getVariable [
+                    "UKSF_PRC163_retiredCompanionIds",
+                    []
+                ];
+
+                _retired pushBackUnique _mountedRadio;
+
+                missionNamespace setVariable [
+                    "UKSF_PRC163_retiredCompanionIds",
+                    _retired
+                ];
+
+                diag_log format [
+                    "UKSF_PRC163 ENDPOINT RETIRED: radio=%1 rack=%2 owner=%3",
+                    _mountedRadio,
+                    _rackId,
+                    _rackOwner
+                ];
+            } else {
+                [
+                    _rackId,
+                    "setState",
+                    [
+                        "mountedRadio",
+                        ""
+                    ]
+                ] call acre_sys_data_fnc_dataEvent;
+
+                {
+                    if (toLower (typeOf _x) isEqualTo _rackId) then {
+                        deleteVehicle _x;
+                    };
+                } forEach (
+                    allMissionObjects "ACRE_baseRack"
+                );
+            };
         };
     };
 
@@ -220,6 +347,41 @@ if (!hasInterface) exitWith {};
                     false,
                     _companion
                 ] call UKSF_PRC163_fnc_normalizePairState;
+
+                /*
+                    Broadcast-ID-only state is intentionally left alone after an
+                    ordinary PTT release. Endpoint retirement is different:
+                    this pair is about to stop being usable, so make sure the
+                    TeamSpeak plugin has left radio-speaking mode and remove a
+                    retired pair ID from ACRE's local broadcast selector.
+                */
+                private _coreStillDown = missionNamespace getVariable [
+                    "acre_sys_core_pttKeyDown",
+                    false
+                ];
+
+                if (!_coreStillDown) then {
+                    if !(isNil "acre_sys_rpc_fnc_callRemoteProcedure") then {
+                        [
+                            "stopRadioSpeaking",
+                            ","
+                        ] call acre_sys_rpc_fnc_callRemoteProcedure;
+                    };
+
+                    private _broadcastAfter = toLower (
+                        missionNamespace getVariable [
+                            "ACRE_BROADCASTING_RADIOID",
+                            ""
+                        ]
+                    );
+
+                    if (_broadcastAfter in [_primary,_companion]) then {
+                        missionNamespace setVariable [
+                            "ACRE_BROADCASTING_RADIOID",
+                            ""
+                        ];
+                    };
+                };
             };
         };
 
@@ -803,7 +965,14 @@ if (!hasInterface) exitWith {};
                 false
             ] call _removeFromAcreLists;
 
-            ACRE_EXTERNALLY_USED_MANPACK_RADIOS pushBackUnique _companion;
+            private _retiredCompanions = missionNamespace getVariable [
+                "UKSF_PRC163_retiredCompanionIds",
+                []
+            ];
+
+            if !(_companion in _retiredCompanions) then {
+                ACRE_EXTERNALLY_USED_MANPACK_RADIOS pushBackUnique _companion;
+            };
 
             [
                 _primary,
