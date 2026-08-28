@@ -11,6 +11,13 @@ _radioId = toLower _radioId;
 
 if (isNull _unit || {_radioId find _prefix != 0}) exitWith {["","",-1]};
 
+if (
+    isNil "acre_sys_radio_fnc_radioExists" ||
+    {!([_radioId] call acre_sys_radio_fnc_radioExists)}
+) exitWith {
+    ["","",-1]
+};
+
 private _radioA = "";
 private _radioB = "";
 

@@ -67,5 +67,4 @@ class CfgAcreComponents {
             "ACRE_SEM70"
         };
     };
-
 };

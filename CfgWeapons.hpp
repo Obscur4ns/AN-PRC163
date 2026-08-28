@@ -11,7 +11,6 @@ class CfgWeapons {
         descriptionShort = "Rechargeable battery for the AN/PRC-163 radio";
         picture = "\UKSF_PRC163\data\ui\prc163_battery_icon.paa";
         model = "\UKSF_PRC163\data\battery.p3d";
-
         class ItemInfo: CBA_MiscItem_ItemInfo {
             mass = 8;
         };
@@ -31,19 +30,6 @@ class CfgWeapons {
 
         class Library {
             libTextDesc = "AN/PRC-163";
-        };
-    };
-
-    class ACRE_PRC163_ID_Base: ACRE_PRC163 {
-        acre_hasUnique = 0;
-        acre_isUnique = 1;
-        acre_baseClass = "ACRE_PRC163";
-        ace_arsenal_uniqueBase = "ACRE_PRC163";
-        scope = 1;
-        scopeCurator = 0;
-
-        class Armory {
-            disabled = 1;
         };
     };
 

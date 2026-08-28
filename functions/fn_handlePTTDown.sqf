@@ -36,6 +36,40 @@ if (_previous in _pairRadios && {_previous isNotEqualTo _source}) then {
 };
 if (_previousConflict) exitWith {false};
 
+private _restorePowerShadow = {
+    params [["_radio","",[""]]];
+    if (_radio isEqualTo "") exitWith {};
+
+    private _restore = [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_getScratchData;
+    if !(_restore isEqualType [] && {count _restore >= 2}) exitWith {
+        [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_setScratchData;
+    };
+
+    private _restoreChannel = _restore param [0,-1,[0]];
+    private _restorePower = _restore param [1,-1,[0]];
+    if (_restoreChannel >= 0 && {_restorePower >= 0}) then {
+        private _channels = [_radio,"getState","channels"] call acre_sys_data_fnc_dataEvent;
+        if (_channels isEqualType [] && {_restoreChannel < count _channels}) then {
+            private _channelData = _channels param [_restoreChannel,locationNull];
+            if !(isNull _channelData) then {
+                _channelData setVariable ["power",_restorePower];
+                _channels set [_restoreChannel,_channelData];
+                [_radio,"setState",["channels",_channels]] call acre_sys_data_fnc_dataEvent;
+            };
+        };
+    };
+
+    [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_setScratchData;
+};
+
+/* Repair any completed/stale shadow before preparing the next real transmission. */
+{
+    private _nativeDown = [_x,"PTTDown",false] call acre_sys_data_fnc_getScratchData;
+    if !(_nativeDown isEqualTo true || {_nativeDown isEqualTo 1}) then {
+        [_x] call _restorePowerShadow;
+    };
+} forEach _pairRadios;
+
 {
     [_x,"setState",["prc163PTTDown",0]] call acre_sys_data_fnc_dataEvent;
     [_x,"setState",["prc163TransmittingA",0]] call acre_sys_data_fnc_dataEvent;
@@ -59,9 +93,45 @@ if (_channelB isEqualType 0 && {_channelB >= 0}) then {
     [_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent;
 };
 
+private _logicalEndpoint = _pairRadios select _logicalLine;
+
+/*
+    Standard ACRE PTT is physically anchored on RT1. When RT2 is the selected
+    logical line, ACRE will therefore ask RT1 for getCurrentChannelData during
+    signal calculation. Mirror only RT2's selected-channel TX power onto the
+    actual broadcaster for the duration of this key so ACRE's native signal
+    model receives the correct milliwatt value.
+*/
+if (_source isNotEqualTo _logicalEndpoint) then {
+    private _logicalData = [_logicalEndpoint,"getChannelData",_txChannel] call acre_sys_data_fnc_dataEvent;
+    private _logicalPower = if (isNil "_logicalData") then {-1} else {
+        _logicalData getVariable ["power",-1]
+    };
+
+    private _sourceChannels = [_source,"getState","channels"] call acre_sys_data_fnc_dataEvent;
+    if (
+        _logicalPower isEqualType 0 &&
+        {_logicalPower >= 0} &&
+        {_sourceChannels isEqualType []} &&
+        {_txChannel < count _sourceChannels}
+    ) then {
+        private _sourceChannelData = _sourceChannels param [_txChannel,locationNull];
+        if !(isNull _sourceChannelData) then {
+            private _sourcePower = _sourceChannelData getVariable ["power",-1];
+            if (_sourcePower isEqualType 0 && {_sourcePower >= 0}) then {
+                [_source,"prc163TxPowerRestore",[_txChannel,_sourcePower]] call acre_sys_data_fnc_setScratchData;
+                _sourceChannelData setVariable ["power",_logicalPower];
+                _sourceChannels set [_txChannel,_sourceChannelData];
+                [_source,"setState",["channels",_sourceChannels]] call acre_sys_data_fnc_dataEvent;
+            };
+        };
+    };
+};
+
 [_source,"setCurrentChannel",_txChannel] call acre_sys_data_fnc_dataEvent;
 private _result = [_source] call acre_sys_prc152_fnc_handlePTTDown;
 if (!_result) exitWith {
+    [_source] call _restorePowerShadow;
     if (_channelA isEqualType 0 && {_channelA >= 0}) then {[_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent};
     if (_channelB isEqualType 0 && {_channelB >= 0}) then {[_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent};
     false

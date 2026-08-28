@@ -48,6 +48,37 @@ if (_releaseRadio isNotEqualTo "") then {
     _released = [_releaseRadio] call acre_sys_prc152_fnc_handlePTTUp;
 };
 
+private _restorePowerShadow = {
+    params [["_radio","",[""]]];
+    if (_radio isEqualTo "") exitWith {};
+
+    private _restore = [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_getScratchData;
+    if !(_restore isEqualType [] && {count _restore >= 2}) exitWith {
+        [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_setScratchData;
+    };
+
+    private _restoreChannel = _restore param [0,-1,[0]];
+    private _restorePower = _restore param [1,-1,[0]];
+    if (_restoreChannel >= 0 && {_restorePower >= 0}) then {
+        private _channels = [_radio,"getState","channels"] call acre_sys_data_fnc_dataEvent;
+        if (_channels isEqualType [] && {_restoreChannel < count _channels}) then {
+            private _channelData = _channels param [_restoreChannel,locationNull];
+            if !(isNull _channelData) then {
+                _channelData setVariable ["power",_restorePower];
+                _channels set [_restoreChannel,_channelData];
+                [_radio,"setState",["channels",_channels]] call acre_sys_data_fnc_dataEvent;
+            };
+        };
+    };
+
+    [_radio,"prc163TxPowerRestore",[]] call acre_sys_data_fnc_setScratchData;
+};
+
+/* Restore only our temporary broadcaster shadow; logical line power is untouched. */
+{
+    [_x] call _restorePowerShadow;
+} forEach _pairRadios;
+
 /* Any second stale endpoint is repaired silently: one physical release, one click. */
 {
     private _nativeDown = [_x,"PTTDown",false] call acre_sys_data_fnc_getScratchData;

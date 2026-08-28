@@ -61,6 +61,25 @@ if (
 
     private _prefix = "acre_prc163_id_";
 
+    private _radioExists = {
+        params [
+            ["_radioId","",[""]]
+        ];
+
+        _radioId = toLower _radioId;
+
+        if (
+            _radioId isEqualTo "" ||
+            {isNil "acre_sys_radio_fnc_radioExists"}
+        ) exitWith {
+            false
+        };
+
+        [
+            _radioId
+        ] call acre_sys_radio_fnc_radioExists
+    };
+
     private _map = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
@@ -204,7 +223,14 @@ if (
                 so it can never be rediscovered as an active pair, and retained
                 only as a mission-lifetime unique-ID tombstone.
             */
-            if (_mountedRadio find _prefix isEqualTo 0) then {
+            private _mountedRadioExists = [
+                _mountedRadio
+            ] call _radioExists;
+
+            if (
+                _mountedRadio find _prefix isEqualTo 0 &&
+                {_mountedRadioExists}
+            ) then {
                 [
                     _mountedRadio
                 ] call _removeFromAcreLists;
@@ -319,69 +345,123 @@ if (
             objNull
         };
 
+        private _primaryExists = [
+            _primary
+        ] call _radioExists;
+
+        private _companionExists = [
+            _companion
+        ] call _radioExists;
+
+        private _broadcast = toLower (
+            missionNamespace getVariable [
+                "ACRE_BROADCASTING_RADIOID",
+                ""
+            ]
+        );
+
+        private _remembered = toLower (
+            missionNamespace getVariable [
+                "UKSF_PRC163_pttRadio",
+                ""
+            ]
+        );
+
+        private _pairIds = [
+            _primary,
+            _companion
+        ] select {
+            _x find _prefix isEqualTo 0
+        };
+
+        private _pairReferenced = (
+            _broadcast in _pairIds ||
+            {_remembered in _pairIds}
+        );
+
         if (
-            !(_primary isEqualTo "") &&
-            {!(_companion isEqualTo "")}
+            _primaryExists &&
+            {_companionExists} &&
+            {_pairReferenced}
         ) then {
-            private _broadcast = toLower (
-                missionNamespace getVariable [
-                    "ACRE_BROADCASTING_RADIOID",
-                    ""
-                ]
-            );
+            [
+                _primary,
+                player,
+                false,
+                _companion
+            ] call UKSF_PRC163_fnc_normalizePairState;
+        };
 
-            private _remembered = toLower (
-                missionNamespace getVariable [
-                    "UKSF_PRC163_pttRadio",
-                    ""
-                ]
-            );
+        /*
+            Ordinary PTT release leaves ACRE_BROADCASTING_RADIOID alone.
+            Endpoint retirement is different. Even if ACRE has already
+            garbage-collected one endpoint, retire local/TeamSpeak ownership
+            without calling data events on that dead ID.
+        */
+        if (_pairReferenced) then {
+            private _coreStillDown = missionNamespace getVariable [
+                "acre_sys_core_pttKeyDown",
+                false
+            ];
 
-            if (
-                _broadcast in [_primary,_companion] ||
-                {_remembered in [_primary,_companion]}
-            ) then {
-                [
-                    _primary,
-                    player,
-                    false,
-                    _companion
-                ] call UKSF_PRC163_fnc_normalizePairState;
+            if (!_coreStillDown) then {
+                if !(isNil "acre_sys_rpc_fnc_callRemoteProcedure") then {
+                    [
+                        "stopRadioSpeaking",
+                        ","
+                    ] call acre_sys_rpc_fnc_callRemoteProcedure;
+                };
 
-                /*
-                    Broadcast-ID-only state is intentionally left alone after an
-                    ordinary PTT release. Endpoint retirement is different:
-                    this pair is about to stop being usable, so make sure the
-                    TeamSpeak plugin has left radio-speaking mode and remove a
-                    retired pair ID from ACRE's local broadcast selector.
-                */
-                private _coreStillDown = missionNamespace getVariable [
-                    "acre_sys_core_pttKeyDown",
+                private _broadcastAfter = toLower (
+                    missionNamespace getVariable [
+                        "ACRE_BROADCASTING_RADIOID",
+                        ""
+                    ]
+                );
+
+                if (_broadcastAfter in _pairIds) then {
+                    missionNamespace setVariable [
+                        "ACRE_BROADCASTING_RADIOID",
+                        ""
+                    ];
+                };
+            };
+
+            if (_remembered in _pairIds) then {
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttHeld",
                     false
                 ];
 
-                if (!_coreStillDown) then {
-                    if !(isNil "acre_sys_rpc_fnc_callRemoteProcedure") then {
-                        [
-                            "stopRadioSpeaking",
-                            ","
-                        ] call acre_sys_rpc_fnc_callRemoteProcedure;
-                    };
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttRadio",
+                    nil
+                ];
 
-                    private _broadcastAfter = toLower (
-                        missionNamespace getVariable [
-                            "ACRE_BROADCASTING_RADIOID",
-                            ""
-                        ]
-                    );
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttLine",
+                    -1
+                ];
 
-                    if (_broadcastAfter in [_primary,_companion]) then {
-                        missionNamespace setVariable [
-                            "ACRE_BROADCASTING_RADIOID",
-                            ""
-                        ];
-                    };
-                };
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttPrimary",
+                    nil
+                ];
+
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttRestoreRadio",
+                    nil
+                ];
+
+                missionNamespace setVariable [
+                    "UKSF_PRC163_pttRestoreChannel",
+                    nil
+                ];
+            };
+
+            if !(isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS") then {
+                ACRE_BLOCKED_TRANSMITTING_RADIOS =
+                    ACRE_BLOCKED_TRANSMITTING_RADIOS - _pairIds;
             };
         };
 
@@ -395,15 +475,9 @@ if (
             ""
         };
 
-        private _gear = (
-            [player] call acre_sys_core_fnc_getGear
-        ) apply {
-            toLower _x
-        };
-
         if (
             _currentRadio isEqualTo _companion &&
-            {_primary in _gear}
+            {_primaryExists}
         ) then {
             [
                 _primary
@@ -459,25 +533,44 @@ if (
             [
                 _companion
             ] call _removeFromAcreLists;
+        };
 
-            if (
-                !isNil "acre_api_fnc_getMultiPushToTalkAssignment" &&
-                {!isNil "acre_api_fnc_setMultiPushToTalkAssignment"}
-            ) then {
-                private _assignments =
-                    [] call acre_api_fnc_getMultiPushToTalkAssignment;
+        if (
+            !_primaryExists &&
+            {!(_primary isEqualTo "")}
+        ) then {
+            [
+                _primary
+            ] call _removeFromAcreLists;
+        };
 
-                private _filteredAssignments = _assignments select {
-                    toLower _x isNotEqualTo _companion
-                };
+        if (
+            !isNil "acre_api_fnc_getMultiPushToTalkAssignment" &&
+            {!isNil "acre_api_fnc_setMultiPushToTalkAssignment"}
+        ) then {
+            private _assignments =
+                [] call acre_api_fnc_getMultiPushToTalkAssignment;
 
-                if (_filteredAssignments isNotEqualTo _assignments) then {
-                    [
-                        _filteredAssignments
-                    ] call acre_api_fnc_setMultiPushToTalkAssignment;
-                };
+            private _retiredAssignments = [
+                _companion
+            ];
+
+            if (!_primaryExists) then {
+                _retiredAssignments pushBack _primary;
             };
 
+            private _filteredAssignments = _assignments select {
+                !(toLower _x in _retiredAssignments)
+            };
+
+            if (_filteredAssignments isNotEqualTo _assignments) then {
+                [
+                    _filteredAssignments
+                ] call acre_api_fnc_setMultiPushToTalkAssignment;
+            };
+        };
+
+        if (_companionExists) then {
             {
                 [
                     _companion,
@@ -509,7 +602,7 @@ if (
             ];
         };
 
-        if !(_primary isEqualTo "") then {
+        if (_primaryExists) then {
             {
                 [
                     _primary,
@@ -531,17 +624,40 @@ if (
             _rackName
         ] call _deleteRack;
 
-        if (_currentRadio isEqualTo _companion) then {
-            private _available = [] call acre_api_fnc_getCurrentRadioList;
+        if (
+            !_primaryExists &&
+            {_currentRadio in _pairIds}
+        ) then {
+            private _available = (
+                [] call acre_api_fnc_getCurrentRadioList
+            ) select {
+                [
+                    _x
+                ] call _radioExists
+            };
 
-            if (
-                _available isEqualType [] &&
-                {_available isNotEqualTo []}
-            ) then {
+            if (_available isNotEqualTo []) then {
                 [
                     _available select 0
                 ] call acre_api_fnc_setCurrentRadio;
             };
+        };
+
+        if (
+            !_primaryExists &&
+            {
+                toLower (
+                    missionNamespace getVariable [
+                        "UKSF_PRC163_activeRadio",
+                        ""
+                    ]
+                ) in _pairIds
+            }
+        ) then {
+            missionNamespace setVariable [
+                "UKSF_PRC163_activeRadio",
+                ""
+            ];
         };
     };
 
@@ -635,11 +751,56 @@ if (
         toLower _x
     };
 
-    private _primaries = _gear select {
+    private _rawPrimaries = _gear select {
         _x find _prefix isEqualTo 0
     };
 
+    private _deadPrimaries = _rawPrimaries select {
+        !([
+            _x
+        ] call _radioExists)
+    };
+
+    private _primaries = _rawPrimaries select {
+        [
+            _x
+        ] call _radioExists
+    };
+
     _primaries sort true;
+
+    if (_deadPrimaries isNotEqualTo []) then {
+        private _deadLogged = missionNamespace getVariable [
+            "UKSF_PRC163_deadRadioIdsLogged",
+            []
+        ];
+
+        {
+            if !(_x in _deadLogged) then {
+                _deadLogged pushBack _x;
+
+                diag_log format [
+                    "UKSF_PRC163 DEAD PRIMARY QUARANTINED: radio=%1",
+                    _x
+                ];
+            };
+
+            if (
+                _x in (keys _map) ||
+                {_x in (keys _pending)}
+            ) then {
+                _missingSince set [
+                    _x,
+                    diag_tickTime - 3.1
+                ];
+            };
+        } forEach _deadPrimaries;
+
+        missionNamespace setVariable [
+            "UKSF_PRC163_deadRadioIdsLogged",
+            _deadLogged
+        ];
+    };
 
     private _trackedPrimaries = (
         keys _map
@@ -765,7 +926,8 @@ if (
                 _rackPresent &&
                 {_mounted isEqualTo _companion} &&
                 {_owner isEqualTo _rackHost} &&
-                {[_companion] call acre_sys_radio_fnc_radioExists}
+                {[_primary] call _radioExists} &&
+                {[_companion] call _radioExists}
             );
         };
 
@@ -820,7 +982,8 @@ if (
             if (
                 !(_rackId isEqualTo "") &&
                 {_companion find _prefix isEqualTo 0} &&
-                {[_companion] call acre_sys_radio_fnc_radioExists}
+                {[_primary] call _radioExists} &&
+                {[_companion] call _radioExists}
             ) then {
                 _entryValid = true;
 
@@ -931,7 +1094,11 @@ if (
             };
         };
 
-        if (_entryValid) then {
+        if (
+            _entryValid &&
+            {[_primary] call _radioExists} &&
+            {[_companion] call _radioExists}
+        ) then {
             [
                 _rackId,
                 "setState",
@@ -1240,6 +1407,106 @@ if (
         _validCompanions
     ];
 
+    /*
+        Loadout/Arsenal changes can replace ACRE unique IDs while UI state still
+        remembers an endpoint from the previous kit. The dialog updater treats
+        a non-empty UKSF_PRC163_guiRadio as authoritative, so a stale string can
+        make the LCD appear powered off/blank until the client reconnects.
+
+        Reconciliation is the authoritative owner of the live pair set. Sanitize
+        remembered PRC-163 pointers here so the existing HMI updater can
+        immediately re-resolve the current pair without another PFH or relog.
+    */
+    private _validPairIds = [];
+
+    {
+        private _radioA = toLower _x;
+        private _entry = _map getOrDefault [
+            _x,
+            []
+        ];
+
+        private _radioB = toLower (
+            _entry param [
+                0,
+                "",
+                [""]
+            ]
+        );
+
+        if (
+            _radioA find _prefix isEqualTo 0 &&
+            {[_radioA] call _radioExists}
+        ) then {
+            _validPairIds pushBackUnique _radioA;
+        };
+
+        if (
+            _radioB find _prefix isEqualTo 0 &&
+            {[_radioB] call _radioExists}
+        ) then {
+            _validPairIds pushBackUnique _radioB;
+        };
+    } forEach (
+        keys _map
+    );
+
+    private _guiRemembered = uiNamespace getVariable [
+        "UKSF_PRC163_guiRadio",
+        ""
+    ];
+
+    if !(_guiRemembered isEqualType "") then {
+        _guiRemembered = "";
+        uiNamespace setVariable [
+            "UKSF_PRC163_guiRadio",
+            ""
+        ];
+    };
+
+    _guiRemembered = toLower _guiRemembered;
+
+    if (
+        _guiRemembered find _prefix isEqualTo 0 &&
+        {!(_guiRemembered in _validPairIds)}
+    ) then {
+        uiNamespace setVariable [
+            "UKSF_PRC163_guiRadio",
+            ""
+        ];
+
+        diag_log format [
+            "UKSF_PRC163 HMI REBIND: cleared stale guiRadio=%1 valid=%2",
+            _guiRemembered,
+            _validPairIds
+        ];
+    };
+
+    private _activeRemembered = missionNamespace getVariable [
+        "UKSF_PRC163_activeRadio",
+        ""
+    ];
+
+    if !(_activeRemembered isEqualType "") then {
+        _activeRemembered = "";
+        missionNamespace setVariable [
+            "UKSF_PRC163_activeRadio",
+            ""
+        ];
+    };
+
+    _activeRemembered = toLower _activeRemembered;
+
+    if (
+        _activeRemembered find _prefix isEqualTo 0 &&
+        {!(_activeRemembered in _validPairIds)}
+    ) then {
+        missionNamespace setVariable [
+            "UKSF_PRC163_activeRadio",
+            ""
+        ];
+    };
+
     missionNamespace setVariable [
         "UKSF_PRC163_companionStatus",
         format [
@@ -1431,6 +1698,25 @@ if (
 [{
     if (isNull player) exitWith {};
 
+    private _radioExists = {
+        params [
+            ["_radioId","",[""]]
+        ];
+
+        _radioId = toLower _radioId;
+
+        if (
+            _radioId isEqualTo "" ||
+            {isNil "acre_sys_radio_fnc_radioExists"}
+        ) exitWith {
+            false
+        };
+
+        [
+            _radioId
+        ] call acre_sys_radio_fnc_radioExists
+    };
+
     private _pilotEnabled = missionNamespace getVariable [
         "UKSF_PRC163_SingleInstancePilot",
         false
@@ -1445,14 +1731,34 @@ if (
             createHashMap
         ];
 
-        private _radios = (
-            [player] call acre_sys_core_fnc_getGear
-        ) apply {
-            toLower _x
-        };
+        private _map = missionNamespace getVariable [
+            "UKSF_PRC163_endpointMap",
+            createHashMap
+        ];
+
+        private _radios = keys _map;
 
         _radios = _radios select {
-            _x find _prefix isEqualTo 0
+            private _radioA = toLower _x;
+            private _entry = _map getOrDefault [
+                _radioA,
+                []
+            ];
+
+            private _radioB = toLower (
+                _entry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            );
+
+            (
+                _radioA find _prefix isEqualTo 0 &&
+                {_radioB find _prefix isEqualTo 0} &&
+                {[_radioA] call _radioExists} &&
+                {[_radioB] call _radioExists}
+            )
         };
 
         _radios sort true;
@@ -1492,11 +1798,6 @@ if (
             [[]]
         ];
 
-        private _map = missionNamespace getVariable [
-            "UKSF_PRC163_endpointMap",
-            createHashMap
-        ];
-
         private _processed = 0;
         private _shutdown = 0;
 
@@ -1517,7 +1818,9 @@ if (
 
             if (
                 !(_radioB isEqualTo "") &&
-                {_radioB find _prefix isEqualTo 0}
+                {_radioB find _prefix isEqualTo 0} &&
+                {[_radioA] call _radioExists} &&
+                {[_radioB] call _radioExists}
             ) then {
                 private _pairRadios = [
                     _radioA,
@@ -1803,7 +2106,8 @@ if (
     private _gearRadios = [player] call acre_sys_core_fnc_getGear;
 
     private _radios = _gearRadios select {
-        _x find "acre_prc163_id_" == 0
+        _x find "acre_prc163_id_" == 0 &&
+        {[_x] call _radioExists}
     };
 
     if (
@@ -1817,7 +2121,15 @@ if (
             private _radioId = toLower _x;
 
             if !(_radioId isEqualTo "") then {
-                _availableRadios pushBackUnique _radioId;
+                if (
+                    _radioId find _prefix isEqualTo 0
+                ) then {
+                    if ([_radioId] call _radioExists) then {
+                        _availableRadios pushBackUnique _radioId;
+                    };
+                } else {
+                    _availableRadios pushBackUnique _radioId;
+                };
             };
         } forEach (
             _gearRadios +
@@ -1877,7 +2189,8 @@ if (
 
             if (
                 !(_sourceRadio isEqualTo "") &&
-                {_sourceRadio find _prefix isEqualTo 0}
+                {_sourceRadio find _prefix isEqualTo 0} &&
+                {[_sourceRadio] call _radioExists}
             ) then {
                 private _statePrimary = [
                     _sourceRadio,
@@ -1967,7 +2280,9 @@ if (
                 {_radioB isEqualTo ""} ||
                 {_radioA isEqualTo _radioB} ||
                 {!(_radioA in _availableRadios)} ||
-                {!(_radioB in _availableRadios)}
+                {!(_radioB in _availableRadios)} ||
+                {!([_radioA] call _radioExists)} ||
+                {!([_radioB] call _radioExists)}
             ) then {
                 _radioA = "";
                 _radioB = "";
