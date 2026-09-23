@@ -935,13 +935,11 @@ if (
                 false
             ]
         ) then {
-            private _broadcast = toLower (
-                missionNamespace getVariable [
-                    "ACRE_BROADCASTING_RADIOID",
-                    ""
-                ]
-            );
-
+            /*
+                Broadcast-ID-only after key-up is normal ACRE state. Look for
+                actual stale PRC-163 ownership instead: remembered/custom/native
+                PTT state. This preserves the squelch-ownership fix.
+            */
             private _remembered = toLower (
                 missionNamespace getVariable [
                     "UKSF_PRC163_pttRadio",
@@ -949,34 +947,71 @@ if (
                 ]
             );
 
-            private _staleSource = if (
-                _remembered in _fastPairIds
-            ) then {
-                _remembered
-            } else {
-                if (_broadcast in _fastPairIds) then {
-                    _broadcast
-                } else {
-                    ""
-                }
-            };
+            private _stalePrimary = "";
 
-            if !(_staleSource isEqualTo "") then {
+            if (_remembered in _fastPairIds) then {
                 private _pair = [
-                    _staleSource,
+                    _remembered,
                     player,
                     false
                 ] call UKSF_PRC163_fnc_resolvePair;
 
-                private _radioA = _pair param [0,"",[""]];
-                private _radioB = _pair param [1,"",[""]];
+                _stalePrimary = _pair param [0,"",[""]];
+            };
 
-                if (
-                    !(_radioA isEqualTo "") &&
-                    {!(_radioB isEqualTo "")}
-                ) then {
-                    [
+            if (_stalePrimary isEqualTo "") then {
+                {
+                    private _radioA = toLower _x;
+                    private _entry = _map getOrDefault [_radioA,[]];
+                    private _radioB = toLower (
+                        _entry param [0,"",[""]]
+                    );
+
+                    private _customDown = (
+                        [
+                            _radioA,
+                            "getState",
+                            "prc163PTTDown"
+                        ] call acre_sys_data_fnc_dataEvent
+                    ) isEqualTo 1;
+
+                    private _nativeA = [
                         _radioA,
+                        "PTTDown",
+                        false
+                    ] call acre_sys_data_fnc_getScratchData;
+
+                    private _nativeB = [
+                        _radioB,
+                        "PTTDown",
+                        false
+                    ] call acre_sys_data_fnc_getScratchData;
+
+                    if (
+                        _customDown ||
+                        {_nativeA isEqualTo true} ||
+                        {_nativeA isEqualTo 1} ||
+                        {_nativeB isEqualTo true} ||
+                        {_nativeB isEqualTo 1}
+                    ) exitWith {
+                        _stalePrimary = _radioA;
+                    };
+                } forEach _primaries;
+            };
+
+            if !(_stalePrimary isEqualTo "") then {
+                private _entry = _map getOrDefault [
+                    _stalePrimary,
+                    []
+                ];
+
+                private _radioB = toLower (
+                    _entry param [0,"",[""]]
+                );
+
+                if !(_radioB isEqualTo "") then {
+                    [
+                        _stalePrimary,
                         player,
                         false,
                         _radioB
