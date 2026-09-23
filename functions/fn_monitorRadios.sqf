@@ -856,8 +856,8 @@ if (
 
     private _stablePairs = (
         _deadPrimaries isEqualTo [] &&
-        {_pending isEqualTo createHashMap} &&
-        {_missingSince isEqualTo createHashMap} &&
+        {(count _pending) isEqualTo 0} &&
+        {(count _missingSince) isEqualTo 0} &&
         {_fastMapKeys isEqualTo _primaries}
     );
 
