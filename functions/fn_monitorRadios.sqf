@@ -80,6 +80,74 @@ if (
         ] call acre_sys_radio_fnc_radioExists
     };
 
+    /*
+        ACRE invalidates its speaking/radio cache whenever radio data is
+        written. Reconciliation runs twice per second, so never emit a data
+        write merely to reaffirm an already-correct value.
+    */
+    private _setStateIfChanged = {
+        params [
+            ["_radioId","",[""]],
+            ["_stateName","",[""]],
+            "_desired"
+        ];
+
+        if (
+            _radioId isEqualTo "" ||
+            {_stateName isEqualTo ""}
+        ) exitWith {false};
+
+        private _current = [
+            _radioId,
+            "getState",
+            _stateName
+        ] call acre_sys_data_fnc_dataEvent;
+
+        if (
+            !isNil "_current" &&
+            {_current isEqualTo _desired}
+        ) exitWith {false};
+
+        [
+            _radioId,
+            "setState",
+            [_stateName,_desired]
+        ] call acre_sys_data_fnc_dataEvent;
+
+        true
+    };
+
+    private _setCurrentChannelIfChanged = {
+        params [
+            ["_radioId","",[""]],
+            ["_desired",-1,[0]]
+        ];
+
+        if (
+            _radioId isEqualTo "" ||
+            {_desired < 0}
+        ) exitWith {false};
+
+        private _current = [
+            _radioId,
+            "getCurrentChannel"
+        ] call acre_sys_data_fnc_dataEvent;
+
+        if (
+            !isNil "_current" &&
+            {_current isEqualType 0} &&
+            {_current isEqualTo _desired}
+        ) exitWith {false};
+
+        [
+            _radioId,
+            "setCurrentChannel",
+            _desired
+        ] call acre_sys_data_fnc_dataEvent;
+
+        true
+    };
+
     private _map = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
@@ -1101,30 +1169,21 @@ if (
         ) then {
             [
                 _rackId,
-                "setState",
-                [
-                    "allowed",
-                    []
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+                "allowed",
+                []
+            ] call _setStateIfChanged;
 
             [
                 _rackId,
-                "setState",
-                [
-                    "disabled",
-                    []
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+                "disabled",
+                []
+            ] call _setStateIfChanged;
 
             [
                 _companion,
-                "setState",
-                [
-                    "powerSource",
-                    "BAT"
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+                "powerSource",
+                "BAT"
+            ] call _setStateIfChanged;
 
             [
                 _companion,
@@ -1141,77 +1200,21 @@ if (
                 ACRE_EXTERNALLY_USED_MANPACK_RADIOS pushBackUnique _companion;
             };
 
-            [
-                _primary,
-                "setState",
-                [
-                    "prc163PrimaryRadio",
-                    _primary
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_primary,"prc163PrimaryRadio",_primary] call _setStateIfChanged;
 
-            [
-                _primary,
-                "setState",
-                [
-                    "prc163CompanionRadio",
-                    _companion
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_primary,"prc163CompanionRadio",_companion] call _setStateIfChanged;
 
-            [
-                _primary,
-                "setState",
-                [
-                    "prc163CompanionRack",
-                    _rackId
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_primary,"prc163CompanionRack",_rackId] call _setStateIfChanged;
 
-            [
-                _primary,
-                "setState",
-                [
-                    "prc163EndpointLine",
-                    0
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_primary,"prc163EndpointLine",0] call _setStateIfChanged;
 
-            [
-                _companion,
-                "setState",
-                [
-                    "prc163PrimaryRadio",
-                    _primary
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_companion,"prc163PrimaryRadio",_primary] call _setStateIfChanged;
 
-            [
-                _companion,
-                "setState",
-                [
-                    "prc163CompanionRadio",
-                    _companion
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_companion,"prc163CompanionRadio",_companion] call _setStateIfChanged;
 
-            [
-                _companion,
-                "setState",
-                [
-                    "prc163CompanionRack",
-                    _rackId
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_companion,"prc163CompanionRack",_rackId] call _setStateIfChanged;
 
-            [
-                _companion,
-                "setState",
-                [
-                    "prc163EndpointLine",
-                    1
-                ]
-            ] call acre_sys_data_fnc_dataEvent;
+            [_companion,"prc163EndpointLine",1] call _setStateIfChanged;
 
             private _initialized = [
                 _primary,
@@ -1268,17 +1271,8 @@ if (
             };
 
             if (!_pairPTTDown) then {
-                [
-                    _primary,
-                    "setCurrentChannel",
-                    _channelA
-                ] call acre_sys_data_fnc_dataEvent;
-
-                [
-                    _companion,
-                    "setCurrentChannel",
-                    _channelB
-                ] call acre_sys_data_fnc_dataEvent;
+                [_primary,_channelA] call _setCurrentChannelIfChanged;
+                [_companion,_channelB] call _setCurrentChannelIfChanged;
 
                 private _currentPairRadio = toLower (
                     [] call acre_api_fnc_getCurrentRadio
@@ -1717,6 +1711,61 @@ if (
         ] call acre_sys_radio_fnc_radioExists
     };
 
+    private _setStateIfChanged = {
+        params [
+            ["_radioId","",[""]],
+            ["_stateName","",[""]],
+            "_desired"
+        ];
+
+        private _current = [
+            _radioId,
+            "getState",
+            _stateName
+        ] call acre_sys_data_fnc_dataEvent;
+
+        if (
+            !isNil "_current" &&
+            {_current isEqualTo _desired}
+        ) exitWith {false};
+
+        [
+            _radioId,
+            "setState",
+            [_stateName,_desired]
+        ] call acre_sys_data_fnc_dataEvent;
+
+        true
+    };
+
+    private _setCurrentChannelIfChanged = {
+        params [
+            ["_radioId","",[""]],
+            ["_desired",-1,[0]]
+        ];
+
+        if (_desired < 0) exitWith {false};
+
+        private _current = [
+            _radioId,
+            "getCurrentChannel"
+        ] call acre_sys_data_fnc_dataEvent;
+
+        if (
+            !isNil "_current" &&
+            {_current isEqualType 0} &&
+            {_current isEqualTo _desired}
+        ) exitWith {false};
+
+        [
+            _radioId,
+            "setCurrentChannel",
+            _desired
+        ] call acre_sys_data_fnc_dataEvent;
+
+        true
+    };
+
     private _pilotEnabled = missionNamespace getVariable [
         "UKSF_PRC163_SingleInstancePilot",
         false
@@ -1892,20 +1941,15 @@ if (
 
                 if (isNil "_lastDrain") then {
                     _lastDrain = _now;
+                    _drainTimes set [_radioA,_now];
                 };
 
-                private _elapsed = (
-                    (
-                        _now - _lastDrain
-                    ) max 0
-                ) min 5;
+                private _elapsedSinceDrain = (_now - _lastDrain) max 0;
 
-                _drainTimes set [
-                    _radioA,
-                    _now
-                ];
+                if (_elapsedSinceDrain >= 5) then {
+                    private _elapsed = _elapsedSinceDrain min 5;
+                    _drainTimes set [_radioA,_lastDrain + _elapsed];
 
-                if (_elapsed > 0) then {
                     [
                         _radioA,
                         _elapsed
@@ -2485,16 +2529,15 @@ if (
 
         if (isNil "_lastDrain") then {
             _lastDrain = _now;
+            _drainTimes set [_radioId,_now];
         };
 
-        private _elapsed = ((_now - _lastDrain) max 0) min 5;
+        private _elapsedSinceDrain = (_now - _lastDrain) max 0;
 
-        _drainTimes set [
-            _radioId,
-            _now
-        ];
+        if (_elapsedSinceDrain >= 5) then {
+            private _elapsed = _elapsedSinceDrain min 5;
+            _drainTimes set [_radioId,_lastDrain + _elapsed];
 
-        if (_elapsed > 0) then {
             [
                 _radioId,
                 _elapsed
@@ -2735,22 +2778,14 @@ if (
                         _channelA isEqualType 0 &&
                         {_channelA >= 0}
                     ) then {
-                        [
-                            _radioA,
-                            "setCurrentChannel",
-                            _channelA
-                        ] call acre_sys_data_fnc_dataEvent;
+                        [_radioA,_channelA] call _setCurrentChannelIfChanged;
                     };
 
                     if (
                         _channelB isEqualType 0 &&
                         {_channelB >= 0}
                     ) then {
-                        [
-                            _radioB,
-                            "setCurrentChannel",
-                            _channelB
-                        ] call acre_sys_data_fnc_dataEvent;
+                        [_radioB,_channelB] call _setCurrentChannelIfChanged;
                     };
 
                     private _currentPairRadio = toLower (
@@ -2767,9 +2802,9 @@ if (
                 {
                     [
                         _x,
-                        "setState",
-                        ["prc163SelectedLine",_selectedLine]
-                    ] call acre_sys_data_fnc_dataEvent;
+                        "prc163SelectedLine",
+                        _selectedLine
+                    ] call _setStateIfChanged;
                 } forEach [
                     _radioA,
                     _radioB
