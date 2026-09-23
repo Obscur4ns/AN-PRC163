@@ -837,6 +837,228 @@ if (
 
     _primaries sort true;
 
+    /*
+        Steady-state fast path.
+
+        Full lifecycle reconciliation is intentionally expensive because it can
+        discover/create racks, repair metadata and clean duplicates. Most ticks
+        have no inventory change. When every tracked pair is already healthy,
+        keep the 0.5 s responsiveness for PTT/HMI/current-radio safety but defer
+        the full audit to a 5 s safety interval.
+    */
+    private _fastRackIds = player getVariable [
+        "acre_sys_rack_vehicleRacks",
+        []
+    ];
+
+    private _fastMapKeys = keys _map;
+    _fastMapKeys sort true;
+
+    private _stablePairs = (
+        _deadPrimaries isEqualTo [] &&
+        {_pending isEqualTo createHashMap} &&
+        {_missingSince isEqualTo createHashMap} &&
+        {_fastMapKeys isEqualTo _primaries}
+    );
+
+    private _fastCompanions = [];
+    private _fastPairIds = [];
+
+    if (_stablePairs) then {
+        {
+            private _radioA = toLower _x;
+            private _entry = _map getOrDefault [_radioA,[]];
+            private _radioB = toLower (_entry param [0,"",[""]]);
+            private _rackId = toLower (_entry param [1,"",[""]]);
+
+            private _rackPresent = (
+                _fastRackIds findIf {
+                    toLower _x isEqualTo _rackId
+                }
+            ) >= 0;
+
+            private _mounted = if (
+                _rackPresent &&
+                {!(_rackId isEqualTo "")} &&
+                {!(isNil "acre_sys_rack_fnc_getMountedRadio")}
+            ) then {
+                toLower (
+                    [_rackId] call acre_sys_rack_fnc_getMountedRadio
+                )
+            } else {
+                ""
+            };
+
+            if (
+                _radioA find _prefix != 0 ||
+                {_radioB find _prefix != 0} ||
+                {_radioA isEqualTo _radioB} ||
+                {!_rackPresent} ||
+                {_mounted isNotEqualTo _radioB} ||
+                {!([_radioA] call _radioExists)} ||
+                {!([_radioB] call _radioExists)} ||
+                {
+                    !(
+                        _radioB in ACRE_EXTERNALLY_USED_MANPACK_RADIOS
+                    )
+                }
+            ) exitWith {
+                _stablePairs = false;
+            };
+
+            _fastCompanions pushBackUnique _radioB;
+            _fastPairIds pushBackUnique _radioA;
+            _fastPairIds pushBackUnique _radioB;
+        } forEach _primaries;
+    };
+
+    private _lastFullReconcile = missionNamespace getVariable [
+        "UKSF_PRC163_lastFullReconcile",
+        -10
+    ];
+
+    private _fullAuditDue = (
+        diag_tickTime - _lastFullReconcile >= 5
+    );
+
+    if (
+        _stablePairs &&
+        {!_fullAuditDue}
+    ) exitWith {
+        /*
+            Repair only genuinely stale PTT ownership. No channel, rack or
+            metadata reads/writes are needed for a healthy idle pair.
+        */
+        if !(
+            missionNamespace getVariable [
+                "acre_sys_core_pttKeyDown",
+                false
+            ]
+        ) then {
+            private _broadcast = toLower (
+                missionNamespace getVariable [
+                    "ACRE_BROADCASTING_RADIOID",
+                    ""
+                ]
+            );
+
+            private _remembered = toLower (
+                missionNamespace getVariable [
+                    "UKSF_PRC163_pttRadio",
+                    ""
+                ]
+            );
+
+            private _staleSource = if (
+                _remembered in _fastPairIds
+            ) then {
+                _remembered
+            } else {
+                if (_broadcast in _fastPairIds) then {
+                    _broadcast
+                } else {
+                    ""
+                }
+            };
+
+            if !(_staleSource isEqualTo "") then {
+                private _pair = [
+                    _staleSource,
+                    player,
+                    false
+                ] call UKSF_PRC163_fnc_resolvePair;
+
+                private _radioA = _pair param [0,"",[""]];
+                private _radioB = _pair param [1,"",[""]];
+
+                if (
+                    !(_radioA isEqualTo "") &&
+                    {!(_radioB isEqualTo "")}
+                ) then {
+                    [
+                        _radioA,
+                        player,
+                        false,
+                        _radioB
+                    ] call UKSF_PRC163_fnc_normalizePairState;
+                };
+            };
+        };
+
+        private _current = [] call acre_api_fnc_getCurrentRadio;
+        if (_current isEqualType "") then {
+            _current = toLower _current;
+
+            private _companionIndex = _fastCompanions find _current;
+            if (_companionIndex >= 0) then {
+                private _primaryIndex = _primaries findIf {
+                    private _entry = _map getOrDefault [_x,[]];
+                    toLower (_entry param [0,"",[""]]) isEqualTo _current
+                };
+
+                if (_primaryIndex >= 0) then {
+                    [
+                        _primaries select _primaryIndex
+                    ] call acre_api_fnc_setCurrentRadio;
+                };
+            };
+        };
+
+        private _guiValue = uiNamespace getVariable [
+            "UKSF_PRC163_guiRadio",
+            ""
+        ];
+
+        if (
+            _guiValue isEqualType "" &&
+            {!(_guiValue isEqualTo "")} &&
+            {
+                !(
+                    toLower _guiValue in _fastPairIds
+                )
+            }
+        ) then {
+            uiNamespace setVariable [
+                "UKSF_PRC163_guiRadio",
+                ""
+            ];
+        };
+
+        private _activeValue = missionNamespace getVariable [
+            "UKSF_PRC163_activeRadio",
+            ""
+        ];
+
+        if (
+            _activeValue isEqualType "" &&
+            {!(_activeValue isEqualTo "")} &&
+            {
+                !(
+                    toLower _activeValue in _fastPairIds
+                )
+            }
+        ) then {
+            missionNamespace setVariable [
+                "UKSF_PRC163_activeRadio",
+                ""
+            ];
+        };
+
+        missionNamespace setVariable [
+            "UKSF_PRC163_companionRadios",
+            _fastCompanions
+        ];
+
+        missionNamespace setVariable [
+            "UKSF_PRC163_companionStatus",
+            format [
+                "ACTIVE %1/%2",
+                count _fastMapKeys,
+                count _primaries
+            ]
+        ];
+    };
+
     if (_deadPrimaries isNotEqualTo []) then {
         private _deadLogged = missionNamespace getVariable [
             "UKSF_PRC163_deadRadioIdsLogged",
@@ -1510,6 +1732,11 @@ if (
             ),
             count _primaries
         ]
+    ];
+
+    missionNamespace setVariable [
+        "UKSF_PRC163_lastFullReconcile",
+        diag_tickTime
     ];
 },0.5] call CBA_fnc_addPerFrameHandler;
 
