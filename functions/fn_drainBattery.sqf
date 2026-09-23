@@ -164,6 +164,13 @@ private _effectiveLifeSeconds = _baseLifeHours * 3600 * _health;
 private _drain = (_elapsedSeconds / _effectiveLifeSeconds) * _multiplier;
 private _newCharge = (_charge - _drain) max 0;
 
+if (abs (_newCharge - _charge) > 0.0000001) then {
+    missionNamespace setVariable [
+        "UKSF_PRC163_batteryLocalDirty",
+        true
+    ];
+};
+
 private _lowWarnedA = [_radioA,"prc163BatteryLowWarned",0] call _readState;
 private _lowWarnedB = [_radioB,"prc163BatteryLowWarned",0] call _readState;
 private _criticalWarnedA = [_radioA,"prc163BatteryCriticalWarned",0] call _readState;
