@@ -7,6 +7,52 @@ _pair params [["_radioA","",[""]],["_radioB","",[""]],["_sourceLine",-1,[0]]];
 if (_radioA isEqualTo "" || {_radioB isEqualTo ""} || {!(_sourceLine in [0,1])}) exitWith {false};
 private _pairRadios = [_radioA,_radioB];
 
+private _setStateIfChanged = {
+    params ["_radio","_name","_desired"];
+
+    private _current = [
+        _radio,
+        "getState",
+        _name
+    ] call acre_sys_data_fnc_dataEvent;
+
+    if (
+        !isNil "_current" &&
+        {_current isEqualTo _desired}
+    ) exitWith {false};
+
+    [
+        _radio,
+        "setState",
+        [_name,_desired]
+    ] call acre_sys_data_fnc_dataEvent;
+
+    true
+};
+
+private _setChannelIfChanged = {
+    params ["_radio",["_desired",-1,[0]]];
+    if (_desired < 0) exitWith {false};
+
+    private _current = [
+        _radio,
+        "getCurrentChannel"
+    ] call acre_sys_data_fnc_dataEvent;
+
+    if (
+        _current isEqualType 0 &&
+        {_current isEqualTo _desired}
+    ) exitWith {false};
+
+    [
+        _radio,
+        "setCurrentChannel",
+        _desired
+    ] call acre_sys_data_fnc_dataEvent;
+
+    true
+};
+
 private _activePTT = missionNamespace getVariable ["ACRE_ACTIVE_PTTKEY",-2];
 private _logicalLine = _sourceLine;
 if (_source isEqualTo _radioA && {_activePTT isEqualTo -1}) then {
@@ -71,9 +117,9 @@ private _restorePowerShadow = {
 } forEach _pairRadios;
 
 {
-    [_x,"setState",["prc163PTTDown",0]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingA",0]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingB",0]] call acre_sys_data_fnc_dataEvent;
+    [_x,"prc163PTTDown",0] call _setStateIfChanged;
+    [_x,"prc163TransmittingA",0] call _setStateIfChanged;
+    [_x,"prc163TransmittingB",0] call _setStateIfChanged;
 } forEach _pairRadios;
 missionNamespace setVariable ["UKSF_PRC163_pttHeld",false];
 missionNamespace setVariable ["UKSF_PRC163_pttRadio",nil];
@@ -87,10 +133,10 @@ if (_source isEqualTo _radioB && {!isNil "ACRE_BLOCKED_TRANSMITTING_RADIOS"}) th
 private _channelA = [_radioA,"getState","prc163ChannelA"] call acre_sys_data_fnc_dataEvent;
 private _channelB = [_radioA,"getState","prc163ChannelB"] call acre_sys_data_fnc_dataEvent;
 if (_channelA isEqualType 0 && {_channelA >= 0}) then {
-    [_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent;
+    [_radioA,_channelA] call _setChannelIfChanged;
 };
 if (_channelB isEqualType 0 && {_channelB >= 0}) then {
-    [_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent;
+    [_radioB,_channelB] call _setChannelIfChanged;
 };
 
 private _logicalEndpoint = _pairRadios select _logicalLine;
@@ -128,19 +174,27 @@ if (_source isNotEqualTo _logicalEndpoint) then {
     };
 };
 
-[_source,"setCurrentChannel",_txChannel] call acre_sys_data_fnc_dataEvent;
+[_source,_txChannel] call _setChannelIfChanged;
 private _result = [_source] call acre_sys_prc152_fnc_handlePTTDown;
 if (!_result) exitWith {
     [_source] call _restorePowerShadow;
-    if (_channelA isEqualType 0 && {_channelA >= 0}) then {[_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent};
-    if (_channelB isEqualType 0 && {_channelB >= 0}) then {[_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent};
+    if (_channelA isEqualType 0 && {_channelA >= 0}) then {[_radioA,_channelA] call _setChannelIfChanged};
+    if (_channelB isEqualType 0 && {_channelB >= 0}) then {[_radioB,_channelB] call _setChannelIfChanged};
     false
 };
 
 {
-    [_x,"setState",["prc163PTTDown",1]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingA",if (_logicalLine isEqualTo 0) then {1} else {0}]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingB",if (_logicalLine isEqualTo 1) then {1} else {0}]] call acre_sys_data_fnc_dataEvent;
+    [_x,"prc163PTTDown",1] call _setStateIfChanged;
+    [
+        _x,
+        "prc163TransmittingA",
+        if (_logicalLine isEqualTo 0) then {1} else {0}
+    ] call _setStateIfChanged;
+    [
+        _x,
+        "prc163TransmittingB",
+        if (_logicalLine isEqualTo 1) then {1} else {0}
+    ] call _setStateIfChanged;
 } forEach _pairRadios;
 
 missionNamespace setVariable ["UKSF_PRC163_pttHeld",true];
