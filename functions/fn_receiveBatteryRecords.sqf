@@ -51,6 +51,31 @@ if (_dirty) exitWith {
     _local isNotEqualTo []
 };
 
-private _applied = if (_clean isEqualTo []) then {false} else {[_clean] call UKSF_PRC163_fnc_applyBatteryRecords};
-missionNamespace setVariable ["UKSF_PRC163_lastBatteryLoad",[_clean,_applied]];
+private _applied = if (_clean isEqualTo []) then {
+    false
+} else {
+    [_clean] call UKSF_PRC163_fnc_applyBatteryRecords
+};
+
+missionNamespace setVariable [
+    "UKSF_PRC163_lastBatteryLoad",
+    [_clean,_applied]
+];
+
+if (_applied) then {
+    /*
+        This is the server-confirmed baseline for the session. Avoid echoing
+        the same records back on the next periodic save tick.
+    */
+    missionNamespace setVariable [
+        "UKSF_PRC163_lastBatterySent",
+        _clean apply {+_x}
+    ];
+
+    missionNamespace setVariable [
+        "UKSF_PRC163_batteryLocalDirty",
+        false
+    ];
+};
+
 _applied
