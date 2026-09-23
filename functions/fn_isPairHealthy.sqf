@@ -21,11 +21,22 @@ if (
     {!([_radioB] call acre_sys_radio_fnc_radioExists)}
 ) exitWith {false};
 
-private _gear = ([_unit] call acre_sys_core_fnc_getGear) apply {toLower _x};
-if !(_radioA in _gear) exitWith {false};
+private _pilotEnabled = missionNamespace getVariable [
+    "UKSF_PRC163_SingleInstancePilot",
+    false
+];
 
-if (missionNamespace getVariable ["UKSF_PRC163_SingleInstancePilot",false]) then {
-    private _map = missionNamespace getVariable ["UKSF_PRC163_endpointMap",createHashMap];
+if (_pilotEnabled) then {
+    /*
+        The monitor owns inventory reconciliation in pilot mode. Hot-path
+        consumers must not rescan gear; validate the reconciled mapping and
+        physical rack relation instead.
+    */
+    private _map = missionNamespace getVariable [
+        "UKSF_PRC163_endpointMap",
+        createHashMap
+    ];
+
     private _entry = _map getOrDefault [_radioA,[]];
     private _mappedB = toLower (_entry param [0,"",[""]]);
     private _rackId = toLower (_entry param [1,"",[""]]);
@@ -36,12 +47,33 @@ if (missionNamespace getVariable ["UKSF_PRC163_SingleInstancePilot",false]) then
         {isNil "acre_sys_rack_fnc_getMountedRadio"} ||
         {toLower ([_rackId] call acre_sys_rack_fnc_getMountedRadio) isNotEqualTo _radioB}
     ) exitWith {false};
+
+    if (!_requireAvailable) exitWith {true};
+
+    if (isNil "acre_api_fnc_getCurrentRadioList") exitWith {false};
+
+    private _available = (
+        [] call acre_api_fnc_getCurrentRadioList
+    ) apply {toLower _x};
+
+    _radioA in _available && {_radioB in _available}
 } else {
-    if !(_radioB in _gear) exitWith {false};
+    private _gear = (
+        [_unit] call acre_sys_core_fnc_getGear
+    ) apply {toLower _x};
+
+    if (
+        !(_radioA in _gear) ||
+        {!(_radioB in _gear)}
+    ) exitWith {false};
+
+    if (!_requireAvailable) exitWith {true};
+
+    if (isNil "acre_api_fnc_getCurrentRadioList") exitWith {false};
+
+    private _available = (
+        [] call acre_api_fnc_getCurrentRadioList
+    ) apply {toLower _x};
+
+    _radioA in _available && {_radioB in _available}
 };
-
-if (!_requireAvailable) exitWith {true};
-if (isNil "acre_api_fnc_getCurrentRadioList") exitWith {false};
-
-private _available = ([] call acre_api_fnc_getCurrentRadioList) apply {toLower _x};
-_radioA in _available && {_radioB in _available}
