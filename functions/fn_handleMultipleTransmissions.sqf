@@ -29,13 +29,32 @@ private _radioA = "";
 private _radioB = "";
 private _line = -1;
 
+private _radioExists = {
+    params [["_radioId","",[""]]];
+
+    _radioId = toLower _radioId;
+
+    if (
+        _radioId isEqualTo "" ||
+        {isNil "acre_sys_radio_fnc_radioExists"}
+    ) exitWith {
+        false
+    };
+
+    [_radioId] call acre_sys_radio_fnc_radioExists
+};
+
 if (_pilotEnabled) then {
+    /*
+        Receive processing is another ACRE hot path. Resolve the pair directly
+        from the monitor-owned endpoint map instead of doing getGear plus
+        isPairHealthy and its additional availability reconciliation.
+    */
     private _endpointMap = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
     ];
 
-    private _mapKeys = keys _endpointMap;
     private _entry = _endpointMap getOrDefault [
         _sourceRadioId,
         []
@@ -45,52 +64,30 @@ if (_pilotEnabled) then {
         _radioA = _sourceRadioId;
         _line = 0;
     } else {
-        private _statePrimary = [
-            _sourceRadioId,
-            "getState",
-            "prc163PrimaryRadio"
-        ] call acre_sys_data_fnc_dataEvent;
+        private _mapKeys = keys _endpointMap;
 
-        if (
-            !isNil "_statePrimary" &&
-            {_statePrimary isEqualType ""}
-        ) then {
-            _statePrimary = toLower _statePrimary;
+        private _primaryIndex = _mapKeys findIf {
+            private _candidateEntry = _endpointMap getOrDefault [
+                _x,
+                []
+            ];
 
-            if (_statePrimary in _mapKeys) then {
-                _radioA = _statePrimary;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-                _line = 1;
-            };
+            toLower (
+                _candidateEntry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            ) isEqualTo _sourceRadioId
         };
 
-        if (_radioA isEqualTo "") then {
-            private _primaryIndex = _mapKeys findIf {
-                private _candidateEntry = _endpointMap getOrDefault [
-                    _x,
-                    []
-                ];
-
-                toLower (
-                    _candidateEntry param [
-                        0,
-                        "",
-                        [""]
-                    ]
-                ) isEqualTo _sourceRadioId
-            };
-
-            if (_primaryIndex >= 0) then {
-                _radioA = _mapKeys select _primaryIndex;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-                _line = 1;
-            };
+        if (_primaryIndex >= 0) then {
+            _radioA = _mapKeys select _primaryIndex;
+            _entry = _endpointMap getOrDefault [
+                _radioA,
+                []
+            ];
+            _line = 1;
         };
     };
 
@@ -103,17 +100,13 @@ if (_pilotEnabled) then {
         ]
     );
 
-    private _gear = (
-        [player] call acre_sys_core_fnc_getGear
-    ) apply {
-        toLower _x
-    };
-
     if (
-        !(_radioA in _gear) ||
-        {_radioA isEqualTo _radioB} ||
+        _radioA find _prefix != 0 ||
         {_radioB find _prefix != 0} ||
-        {!(_line in [0,1])}
+        {_radioA isEqualTo _radioB} ||
+        {!(_line in [0,1])} ||
+        {!([_radioA] call _radioExists)} ||
+        {!([_radioB] call _radioExists)}
     ) then {
         _radioA = "";
         _radioB = "";
@@ -156,7 +149,9 @@ if (_pilotEnabled) then {
 
             if (
                 _candidateA in _gear &&
-                {_candidateB in _gear}
+                {_candidateB in _gear} &&
+                {[_candidateA] call _radioExists} &&
+                {[_candidateB] call _radioExists}
             ) then {
                 _radioA = _candidateA;
                 _radioB = _candidateB;
@@ -175,14 +170,7 @@ if (_pilotEnabled) then {
 if (
     _radioA isNotEqualTo "" &&
     {_radioB isNotEqualTo ""} &&
-    {_line in [0,1]} &&
-    {
-        [
-            _radioA,
-            _radioB,
-            player
-        ] call UKSF_PRC163_fnc_isPairHealthy
-    }
+    {_line in [0,1]}
 ) then {
     private _receiving = if (
         _result isEqualType [] &&
@@ -198,20 +186,36 @@ if (
         "prc163ReceivingB"
     ] select _line;
 
-    {
-        [
-            _x,
-            "setState",
-            [
-                _stateName,
-                _receiving
-            ]
-        ] call acre_sys_data_fnc_dataEvent;
-    } forEach [
+    /*
+        ACRE can poll this callback repeatedly while the receive condition has
+        not changed. Avoid broadcasting two identical setState writes on every
+        poll; only mirror the state when the logical receive state transitions.
+    */
+    private _currentReceiving = [
         _radioA,
-        _radioB
-    ];
+        "getState",
+        _stateName
+    ] call acre_sys_data_fnc_dataEvent;
 
+    if !(_currentReceiving in [0,1]) then {
+        _currentReceiving = -1;
+    };
+
+    if (_currentReceiving isNotEqualTo _receiving) then {
+        {
+            [
+                _x,
+                "setState",
+                [
+                    _stateName,
+                    _receiving
+                ]
+            ] call acre_sys_data_fnc_dataEvent;
+        } forEach [
+            _radioA,
+            _radioB
+        ];
+    };
 };
 
 _result

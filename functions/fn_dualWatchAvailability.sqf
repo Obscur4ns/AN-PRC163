@@ -13,22 +13,18 @@ if (
     false
 };
 
-private _nativeFunction = missionNamespace getVariable [
-    "acre_sys_modes_fnc_sc_muting",
-    {}
-];
-
-if !(_nativeFunction isEqualType {}) exitWith {
-    false
-};
-
 private _prefix = "acre_prc163_id_";
 
+/*
+    CfgAcreRadioModes points global singleChannel/singleChannelPRR availability
+    at this wrapper. Keep the overwhelmingly common non-PRC163 path as close to
+    native ACRE cost as possible.
+*/
 if (_receivingRadio find _prefix != 0) exitWith {
     [
         _transmittingRadio,
         _receivingRadio
-    ] call _nativeFunction
+    ] call acre_sys_modes_fnc_sc_muting
 };
 
 private _pilotEnabled = missionNamespace getVariable [
@@ -40,13 +36,35 @@ private _radioA = "";
 private _radioB = "";
 private _receivingLine = -1;
 
+private _radioExists = {
+    params [["_radioId","",[""]]];
+
+    _radioId = toLower _radioId;
+
+    if (
+        _radioId isEqualTo "" ||
+        {isNil "acre_sys_radio_fnc_radioExists"}
+    ) exitWith {
+        false
+    };
+
+    [_radioId] call acre_sys_radio_fnc_radioExists
+};
+
 if (_pilotEnabled) then {
+    /*
+        HOT PATH:
+        ACRE calls mode availability from its transmitter x receiver nested
+        radio loop. Do not rebuild gear/current-radio lists here.
+
+        UKSF_PRC163_endpointMap is already reconciled by fn_monitorRadios and is
+        the authoritative local mapping of physical RT1 -> synthetic RT2.
+    */
     private _endpointMap = missionNamespace getVariable [
         "UKSF_PRC163_endpointMap",
         createHashMap
     ];
 
-    private _mapKeys = keys _endpointMap;
     private _entry = _endpointMap getOrDefault [
         _receivingRadio,
         []
@@ -56,52 +74,30 @@ if (_pilotEnabled) then {
         _radioA = _receivingRadio;
         _receivingLine = 0;
     } else {
-        private _statePrimary = [
-            _receivingRadio,
-            "getState",
-            "prc163PrimaryRadio"
-        ] call acre_sys_data_fnc_dataEvent;
+        private _mapKeys = keys _endpointMap;
 
-        if (
-            !isNil "_statePrimary" &&
-            {_statePrimary isEqualType ""}
-        ) then {
-            _statePrimary = toLower _statePrimary;
+        private _primaryIndex = _mapKeys findIf {
+            private _candidateEntry = _endpointMap getOrDefault [
+                _x,
+                []
+            ];
 
-            if (_statePrimary in _mapKeys) then {
-                _radioA = _statePrimary;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-                _receivingLine = 1;
-            };
+            toLower (
+                _candidateEntry param [
+                    0,
+                    "",
+                    [""]
+                ]
+            ) isEqualTo _receivingRadio
         };
 
-        if (_radioA isEqualTo "") then {
-            private _primaryIndex = _mapKeys findIf {
-                private _candidateEntry = _endpointMap getOrDefault [
-                    _x,
-                    []
-                ];
-
-                toLower (
-                    _candidateEntry param [
-                        0,
-                        "",
-                        [""]
-                    ]
-                ) isEqualTo _receivingRadio
-            };
-
-            if (_primaryIndex >= 0) then {
-                _radioA = _mapKeys select _primaryIndex;
-                _entry = _endpointMap getOrDefault [
-                    _radioA,
-                    []
-                ];
-                _receivingLine = 1;
-            };
+        if (_primaryIndex >= 0) then {
+            _radioA = _mapKeys select _primaryIndex;
+            _entry = _endpointMap getOrDefault [
+                _radioA,
+                []
+            ];
+            _receivingLine = 1;
         };
     };
 
@@ -114,23 +110,23 @@ if (_pilotEnabled) then {
         ]
     );
 
-    private _gearRadios = (
-        [player] call acre_sys_core_fnc_getGear
-    ) apply {
-        toLower _x
-    };
-
     if (
-        !(_radioA in _gearRadios) ||
-        {_radioA isEqualTo _radioB} ||
+        _radioA find _prefix != 0 ||
         {_radioB find _prefix != 0} ||
-        {!(_receivingLine in [0,1])}
+        {_radioA isEqualTo _radioB} ||
+        {!(_receivingLine in [0,1])} ||
+        {!([_radioA] call _radioExists)} ||
+        {!([_radioB] call _radioExists)}
     ) then {
         _radioA = "";
         _radioB = "";
         _receivingLine = -1;
     };
 } else {
+    /*
+        Legacy fallback only. The active SingleInstancePilot does not take this
+        branch, so preserve historical pairing semantics without changing them.
+    */
     private _radioIds = (
         [player] call acre_sys_core_fnc_getGear
     ) apply {
@@ -167,7 +163,9 @@ if (_pilotEnabled) then {
 
             if (
                 _candidateA in _radioIds &&
-                {_candidateB in _radioIds}
+                {_candidateB in _radioIds} &&
+                {[_candidateA] call _radioExists} &&
+                {[_candidateB] call _radioExists}
             ) then {
                 _radioA = _candidateA;
                 _radioB = _candidateB;
@@ -186,19 +184,12 @@ if (_pilotEnabled) then {
 if (
     _radioA isEqualTo "" ||
     {_radioB isEqualTo ""} ||
-    {!(_receivingLine in [0,1])} ||
-    {!(
-        [
-            _radioA,
-            _radioB,
-            player
-        ] call UKSF_PRC163_fnc_isPairHealthy
-    )}
+    {!(_receivingLine in [0,1])}
 ) exitWith {
     [
         _transmittingRadio,
         _receivingRadio
-    ] call _nativeFunction
+    ] call acre_sys_modes_fnc_sc_muting
 };
 
 private _dualWatch = [
