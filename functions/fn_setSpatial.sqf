@@ -99,17 +99,22 @@ private _stateName = [
 ] select _line;
 
 {
-    [
+    private _current = [
         _x,
-        "setState",
-        [
-            _stateName,
-            _spatialValue
-        ]
+        "getState",
+        _stateName
     ] call acre_sys_data_fnc_dataEvent;
-} forEach [
-    _radioA,
-    _radioB
-];
+
+    if (
+        isNil "_current" ||
+        {!(_current isEqualTo _spatialValue)}
+    ) then {
+        [
+            _x,
+            "setState",
+            [_stateName,_spatialValue]
+        ] call acre_sys_data_fnc_dataEvent;
+    };
+} forEach [_radioA,_radioB];
 
 true
