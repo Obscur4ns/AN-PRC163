@@ -26,6 +26,52 @@ if (
 private _pairRadios = [_radioA,_radioB] select {_x find _prefix isEqualTo 0};
 if (_pairRadios isEqualTo []) exitWith {false};
 
+private _setStateIfChanged = {
+    params ["_radio","_name","_desired"];
+
+    private _current = [
+        _radio,
+        "getState",
+        _name
+    ] call acre_sys_data_fnc_dataEvent;
+
+    if (
+        !isNil "_current" &&
+        {_current isEqualTo _desired}
+    ) exitWith {false};
+
+    [
+        _radio,
+        "setState",
+        [_name,_desired]
+    ] call acre_sys_data_fnc_dataEvent;
+
+    true
+};
+
+private _setChannelIfChanged = {
+    params ["_radio",["_desired",-1,[0]]];
+    if (_desired < 0) exitWith {false};
+
+    private _current = [
+        _radio,
+        "getCurrentChannel"
+    ] call acre_sys_data_fnc_dataEvent;
+
+    if (
+        _current isEqualType 0 &&
+        {_current isEqualTo _desired}
+    ) exitWith {false};
+
+    [
+        _radio,
+        "setCurrentChannel",
+        _desired
+    ] call acre_sys_data_fnc_dataEvent;
+
+    true
+};
+
 private _releaseCandidates = [];
 {
     private _id = toLower _x;
@@ -86,9 +132,9 @@ private _restorePowerShadow = {
         [_x,"PTTDown",false] call acre_sys_data_fnc_setScratchData;
     };
 
-    [_x,"setState",["prc163PTTDown",0]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingA",0]] call acre_sys_data_fnc_dataEvent;
-    [_x,"setState",["prc163TransmittingB",0]] call acre_sys_data_fnc_dataEvent;
+    [_x,"prc163PTTDown",0] call _setStateIfChanged;
+    [_x,"prc163TransmittingA",0] call _setStateIfChanged;
+    [_x,"prc163TransmittingB",0] call _setStateIfChanged;
 } forEach _pairRadios;
 
 missionNamespace setVariable ["UKSF_PRC163_pttHeld",false];
@@ -101,10 +147,10 @@ if (_radioA isNotEqualTo "" && {_radioB isNotEqualTo ""}) then {
     private _channelB = [_radioA,"getState","prc163ChannelB"] call acre_sys_data_fnc_dataEvent;
 
     if (_channelA isEqualType 0 && {_channelA >= 0}) then {
-        [_radioA,"setCurrentChannel",_channelA] call acre_sys_data_fnc_dataEvent;
+        [_radioA,_channelA] call _setChannelIfChanged;
     };
     if (_channelB isEqualType 0 && {_channelB >= 0}) then {
-        [_radioB,"setCurrentChannel",_channelB] call acre_sys_data_fnc_dataEvent;
+        [_radioB,_channelB] call _setChannelIfChanged;
     };
 
     missionNamespace setVariable ["UKSF_PRC163_activeRadio",_radioA];
